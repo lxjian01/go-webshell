@@ -96,9 +96,9 @@ func (c *DockerClient) ContainerExecCreate() error{
 }
 
 func (c *DockerClient) ContainerExecAttach() error{
-	execAttachConf := types.ExecConfig{
-		Tty: true,
+	execAttachConf := types.ExecStartCheck{
 		Detach: false,
+		Tty: true,
 	}
 	conn,err := c.cli.ContainerExecAttach(ctx,c.execId,execAttachConf)
 	c.Response = conn
