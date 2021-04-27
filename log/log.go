@@ -5,7 +5,7 @@ import (
 	"github.com/lestrrat-go/file-rotatelogs"
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
-	"kubernetes-go-demo/config"
+	"go-webshell/config"
 	"os"
 	"path"
 	"path/filepath"
