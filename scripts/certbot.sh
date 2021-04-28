@@ -71,20 +71,20 @@ mkdir -p /etc/docker/certs.d
 cp $DIR/ca.pem /etc/docker/certs.d/
 cp $DIR/server-*.pem /etc/docker/certs.d/
 
-cat <<EOF >/etc/docker/daemon.json
-{
-    "tlsverify": true,
-    "tlscacert": "/etc/docker/certs.d/ca.pem",
-    "tlscert": "/etc/docker/certs.d/server-cert.pem",
-    "tlskey": "/etc/docker/certs.d/server-key.pem",
-    "hosts": ["unix:///var/run/docker.sock", "tcp://127.0.0.1:2375"]
-}
-EOF
+#cat <<EOF >/etc/docker/daemon.json
+#{
+#    "tlsverify": true,
+#    "tlscacert": "/etc/docker/certs.d/ca.pem",
+#    "tlscert": "/etc/docker/certs.d/server-cert.pem",
+#    "tlskey": "/etc/docker/certs.d/server-key.pem",
+#    "hosts": ["unix:///var/run/docker.sock", "tcp://127.0.0.1:2375"]
+#}
+#EOF
 
 # Modify Systemd Service
 
-if [ -f /lib/systemd/system/docker.service ]; then
-    # sed -i 's#\["tcp:#\["fd://", "tcp:#' /etc/docker/daemon.json
-    # sed -i 's# -H fd://##' /lib/systemd/system/docker.service
-    systemctl daemon-reload && systemctl restart docker
-fi
+#if [ -f /lib/systemd/system/docker.service ]; then
+#    sed -i 's#\["tcp:#\["fd://", "tcp:#' /etc/docker/daemon.json
+#    sed -i 's# -H fd://##' /lib/systemd/system/docker.service
+#    systemctl daemon-reload && systemctl restart docker
+#fi

@@ -61,8 +61,8 @@ func (c *DockerClient) getOptions() tlsconfig.Options{
 	log.Info("Docker path is",dir)
 	env := viper.GetString("Env")
 	caFile := filepath.Join(dir,"/config/",env,"/keys/docker/ca.pem")
-	certfile :=  filepath.Join(dir,"/config/",env,"/keys/docker/cert.pem")
-	keyfile :=  filepath.Join(dir,"/config/",env,"/keys/docker/key.pem")
+	certfile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-cert.pem")
+	keyfile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-key.pem")
 	options := tlsconfig.Options{
 		CAFile:            caFile,
 		CertFile:          certfile,

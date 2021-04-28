@@ -1,3 +1,0 @@
-PASSWORD: lxj
-HOST_NAME: local-devops-webshell-front.lxj.com
-HOST_IP: 127.0.0.1
