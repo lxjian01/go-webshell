@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go-webshell/httpd/services"
 	"go-webshell/log"
 	"go-webshell/pools"
-	"go-webshell/httpd/services"
 	"go-webshell/terminals"
-	"strconv"
 	"strings"
 )
 
@@ -16,8 +15,7 @@ func WsConnectLinux(c *gin.Context){
 	// 获取参数
 	projectCode := c.Param("project_code")
 	moduleCode := c.Param("module_code")
-	tempDeployJobHostId := c.Param("deploy_job_host_id")
-	deployJobHostId,_ := strconv.Atoi(tempDeployJobHostId)
+	deployJobHostId := c.Param("deploy_job_host_id")
 	host := c.Param("host")
 	log.Infof("%s %s %d %s \n",projectCode,moduleCode,deployJobHostId,host)
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)

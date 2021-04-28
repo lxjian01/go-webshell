@@ -9,7 +9,6 @@ import (
 	"go-webshell/pools"
 	"go-webshell/httpd/services"
 	"go-webshell/terminals"
-	"strconv"
 	"strings"
 )
 
@@ -17,8 +16,7 @@ func WsConnectDocker(c *gin.Context){
 	// 获取参数
 	projectCode := c.Param("project_code")
 	moduleCode := c.Param("module_code")
-	tempDeployJobHostId := c.Param("deploy_job_host_id")
-	deployJobHostId,_ := strconv.Atoi(tempDeployJobHostId)
+	deployJobHostId := c.Param("deploy_job_host_id")
 	host := c.Param("host")
 	log.Infof("%s %s %d %s\n",projectCode,moduleCode,deployJobHostId,host)
 	// 初始化websocket
@@ -45,7 +43,7 @@ func WsConnectDocker(c *gin.Context){
 	})
 
 	// init docker client
-	container := fmt.Sprintf("%s_%d",moduleCode,deployJobHostId)
+	container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
 	dockerCli = &terminals.DockerClient{
 		UserCode: loginUser.UserCode,
 		Host: host,

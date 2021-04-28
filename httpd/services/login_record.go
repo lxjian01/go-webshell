@@ -2,7 +2,7 @@ package services
 
 
 // add login record
-func InsertLoginRecord(projectCode string, moduleCode string,host string,deployJobJostId int,userCode string) int64 {
+func InsertLoginRecord(projectCode string, moduleCode string,host string,deployJobJostId string,userCode string) int64 {
 	return 0
 }
 
