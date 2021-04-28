@@ -56,7 +56,7 @@ func getSshSigner() (ssh.Signer,error) {
 	dir,_ := os.Getwd()
 	log.Info("Linux path is",dir)
 	env := viper.GetString("Env")
-	cafile := filepath.Join(dir,"/config/",env,"/keys/linux/devops")
+	cafile := filepath.Join(dir,"/config/",env,"/keys/linux/id_rsa")
 	key, err := ioutil.ReadFile(cafile)
 	if err != nil {
 		log.Error("ssh key file read failed", err)
