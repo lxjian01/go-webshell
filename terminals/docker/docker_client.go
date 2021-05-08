@@ -1,4 +1,4 @@
-package terminals
+package docker
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/spf13/viper"
 	"go-webshell/log"
+	"go-webshell/terminals"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,7 +27,7 @@ type DockerClient struct{
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
-	Record *Record
+	Record *terminals.Record
 }
 
 

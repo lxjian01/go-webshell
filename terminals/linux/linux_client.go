@@ -1,11 +1,12 @@
-package terminals
+package linux
 
 import (
 	"bytes"
 	"github.com/spf13/viper"
+	"go-webshell/log"
+	"go-webshell/terminals"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"go-webshell/log"
 	"net"
 	"strconv"
 	"sync"
@@ -30,7 +31,7 @@ type LinuxClient struct {
 	Host string
 	Cli *ssh.Client
 	SshConn *SshConn
-	Record *Record
+	Record *terminals.Record
 	IsClose bool
 }
 
@@ -56,7 +57,7 @@ func (c *LinuxClient) InitSshClient() error {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //这个可以， 但是不够安全
 		//HostKeyCallback: hostKeyCallBackFunc(h.Host),
 	}
-	singer,err := getSshSigner()
+	singer,err := terminals.GetSshSigner()
 	if err != nil{
 		return err
 	}

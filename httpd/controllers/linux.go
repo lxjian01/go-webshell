@@ -8,6 +8,7 @@ import (
 	"go-webshell/log"
 	"go-webshell/pools"
 	"go-webshell/terminals"
+	"go-webshell/terminals/linux"
 	"strings"
 )
 
@@ -27,7 +28,7 @@ func WsConnectLinux(c *gin.Context){
 	// 获取登陆用户信息
 	loginUser := getLoginUser(c,ws)
 	// init linux client
-	linuxCli := &terminals.LinuxClient{
+	linuxCli := &linux.LinuxClient{
 		Host: host,
 	}
 	var loginId int64
@@ -91,7 +92,7 @@ func WsConnectLinux(c *gin.Context){
 	}
 }
 
-func readLinuxToSendWebsocket(ws *websocket.Conn,linuxCli *terminals.LinuxClient){
+func readLinuxToSendWebsocket(ws *websocket.Conn,linuxCli *linux.LinuxClient){
 	for {
 		// linux reader and websocket writer
 		buf := make([]byte, 1024)

@@ -52,7 +52,7 @@ func WriteRecord(record *Record,cmd string){
 	}
 }
 
-func getSshSigner() (ssh.Signer,error) {
+func GetSshSigner() (ssh.Signer,error) {
 	dir,_ := os.Getwd()
 	log.Info("Linux path is",dir)
 	env := viper.GetString("Env")

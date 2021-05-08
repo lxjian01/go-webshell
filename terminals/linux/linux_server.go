@@ -1,8 +1,9 @@
-package terminals
+package linux
 
 import (
-	"golang.org/x/crypto/ssh"
 	"go-webshell/log"
+	"go-webshell/terminals"
+	"golang.org/x/crypto/ssh"
 	"strings"
 )
 
@@ -35,7 +36,7 @@ func (c *LinuxServer) GetSshServerConfig() *ssh.ServerConfig{
 			return msg
 		},
 	}
-	singer,err := getSshSigner()
+	singer,err := terminals.GetSshSigner()
 	if err != nil{
 		log.Error("Get ssh singer error by",err)
 	}

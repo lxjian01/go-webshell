@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go-webshell/httpd/services"
 	"go-webshell/log"
 	"go-webshell/pools"
-	"go-webshell/httpd/services"
 	"go-webshell/terminals"
+	"go-webshell/terminals/docker"
 	"strings"
 )
 
@@ -30,7 +31,7 @@ func WsConnectDocker(c *gin.Context){
 	// 获取登陆用户信息
 	loginUser := getLoginUser(c,ws)
 	// 定义client
-	var dockerCli *terminals.DockerClient
+	var dockerCli *docker.DockerClient
 	var loginId int64
 	// websocket close handler
 	ws.SetCloseHandler(func(code int, text string) error {
@@ -44,7 +45,7 @@ func WsConnectDocker(c *gin.Context){
 
 	// init docker client
 	container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
-	dockerCli = &terminals.DockerClient{
+	dockerCli = &docker.DockerClient{
 		UserCode: loginUser.UserCode,
 		Host: host,
 		Container:container,
@@ -109,7 +110,7 @@ func WsConnectDocker(c *gin.Context){
 }
 
 // read docker message to send websocket
-func readDockerToSendWebsocket(ws *websocket.Conn,dockerCli *terminals.DockerClient){
+func readDockerToSendWebsocket(ws *websocket.Conn,dockerCli *docker.DockerClient){
 	for {
 		// docker reader and websocket writer
 		buf := make([]byte, 10240)
