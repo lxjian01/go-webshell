@@ -2,16 +2,19 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
+	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
 	"go-webshell/log"
 	"go-webshell/terminals"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var (
@@ -20,6 +23,7 @@ var (
 	)
 
 type DockerClient struct{
+	Host string
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
@@ -28,6 +32,7 @@ type DockerClient struct{
 
 func NewDockerClient(host string) (*DockerClient, error) {
 	var c DockerClient
+	c.Host = host
 	options := getOptions()
 	tlsConfig, err := tlsconfig.Client(options)
 	if err != nil {
@@ -39,7 +44,7 @@ func NewDockerClient(host string) (*DockerClient, error) {
 			TLSClientConfig: tlsConfig,
 		},
 	}
-	hostCon := fmt.Sprintf("tcp://%s:2375", host)
+	hostCon := fmt.Sprintf("tcp://%s:2375", c.Host)
 	cli, err1 := client.NewClient(hostCon, version,httpClient,nil)
 	c.cli = cli
 	return &c, err1
@@ -104,6 +109,61 @@ func (c *DockerClient) ContainerExecResize(height uint, width uint) error{
 	}
 	err := c.cli.ContainerExecResize(ctx,c.execId,options)
 	return err
+}
+
+// read docker message to send websocket
+func (c *DockerClient) DockerReadWebsocketWrite(ws *websocket.Conn){
+	for {
+		// docker reader and websocket writer
+		buf := make([]byte, 10240)
+		n, err := c.Response.Conn.Read(buf)
+		if err != nil {
+			log.Error("Read docker message error by",err)
+			return
+		}
+		//cmd := strconv.Quote(string(buf[:n]))
+		//a := strings.ReplaceAll(cmd, "[", "")
+		//b := strings.ReplaceAll(a, "]", "")
+		//fmt.Println(b)
+		b := string(buf[:n])
+		terminals.WriteRecord(c.Record, b)
+		err = ws.WriteMessage(websocket.BinaryMessage, buf)
+		if err != nil {
+			log.Error("Docker message write to websocket error by",err)
+			return
+		}
+	}
+}
+
+func (c *DockerClient) DockerWriteWebsocketRead(ws *websocket.Conn, userCode string){
+	var build strings.Builder
+	for {
+		// docker writer and websocket reader
+		_, p, err := ws.ReadMessage()
+		if err != nil {
+			log.Error("Read websocket message error by",err)
+			return
+		}
+		cmd := string(p)
+		if strings.HasPrefix(cmd, "{\"type\":\"resize\",\"rows\":"){
+			var resizeParams terminals.ResizeParams
+			if err := json.Unmarshal([]byte(cmd),&resizeParams);err != nil{
+				log.Error("Unmarshal resize params error by",err)
+			}
+			height := uint(resizeParams.Rows)
+			width := uint(resizeParams.Cols)
+			if err := c.ContainerExecResize(height,width);err != nil{
+				log.Error("Change ssh windows size error by",err)
+			}
+		}else {
+			terminals.WriteCmdLog(&build, cmd, userCode, c.Host, 0)
+			_, err1 := c.Response.Conn.Write(p)
+			if err1 != nil {
+				log.Error("Websocket message copy to docker error by", err)
+				return
+			}
+		}
+	}
 }
 
 func (c *DockerClient) Close() {

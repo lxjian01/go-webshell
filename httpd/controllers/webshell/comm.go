@@ -1,14 +1,12 @@
-package controllers
+package webshell
 
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"go-webshell/log"
 	"go-webshell/httpd/middlewares"
-	"go-webshell/httpd/services"
+	"go-webshell/log"
 	"net/http"
 	"reflect"
-	"strings"
 )
 
 var upgrader = websocket.Upgrader{
@@ -18,29 +16,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
-}
-
-type resizeParams struct {
-	Ptype   string   `json:"type"`
-	Rows    int      `json:"rows"`
-	Cols    int      `json:"cols"`
-	Height  int      `json:"height"`
-	Width   int      `json:"width"`
-}
-
-// write oper commands
-func writeCmdLog(build *strings.Builder,msg string,userCode string,host string,mtype int)  {
-	if msg == "\r"{
-		cmd := build.String()
-		if mtype == 0{
-			services.AddDockerOperRecord(cmd,userCode,host)
-		}else{
-			services.AddLinuxOperRecord(cmd,userCode,host)
-		}
-		build.Reset()
-	}else{
-		build.WriteString(msg)
-	}
 }
 
 // websocket send message

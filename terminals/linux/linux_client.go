@@ -2,6 +2,8 @@ package linux
 
 import (
 	"bytes"
+	"encoding/json"
+	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
 	"go-webshell/log"
 	"go-webshell/terminals"
@@ -9,6 +11,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +31,7 @@ func (w *wsBufferWriter) Write(p []byte) (int, error) {
 }
 
 type LinuxClient struct {
+	Host string
 	Cli *ssh.Client
 	SshConn *SshConn
 	Record *terminals.Record
@@ -49,6 +53,7 @@ func publicKeyAuthFunc(singer ssh.Signer) ssh.AuthMethod{
 
 func NewSshClient(host string) (*LinuxClient, error) {
 	var c LinuxClient
+	c.Host = host
 	LinuxUser := viper.GetString("LinuxUser")
 	config := &ssh.ClientConfig{
 		Timeout:         time.Second * 5,
@@ -61,7 +66,7 @@ func NewSshClient(host string) (*LinuxClient, error) {
 		return nil, err
 	}
 	config.Auth = []ssh.AuthMethod{publicKeyAuthFunc(singer)}
-	addr := net.JoinHostPort(host, strconv.Itoa(22))
+	addr := net.JoinHostPort(c.Host, strconv.Itoa(22))
 	cli, err1 := ssh.Dial("tcp", addr, config)
 	c.Cli = cli
 	return &c, err1
@@ -110,6 +115,54 @@ func (c *LinuxClient) NewSession(cols, rows int) error {
 	return nil
 }
 
+func (c *LinuxClient) LinuxReadWebsocketWrite(ws *websocket.Conn){
+	for {
+		// linux reader and websocket writer
+		buf := make([]byte, 1024)
+		n, err := c.SshConn.StdoutPipe.Read(buf)
+		if err != nil {
+			log.Error("Read docker message error by ",err)
+			return
+		}
+		cmd := string(buf[:n])
+		terminals.WriteRecord(c.Record,cmd)
+		err1 := ws.WriteMessage(websocket.BinaryMessage, buf)
+		if err1 != nil {
+			log.Error("Docker message write to websocket error by ",err1)
+			return
+		}
+	}
+}
+
+func (c *LinuxClient) LinuxWriteWebsocketRead(ws *websocket.Conn, userCode string){
+	var build strings.Builder
+	for {
+		// linux writer and websocket reader
+		_, p, err := ws.ReadMessage()
+		if err != nil {
+			log.Error("Read websocket message error by ",err)
+			return
+		}
+		cmd := string(p)
+		if strings.HasPrefix(cmd, "{\"type\":\"resize\",\"rows\":"){
+			var resizeParams terminals.ResizeParams
+			if err := json.Unmarshal([]byte(cmd),&resizeParams);err != nil{
+				log.Error("Unmarshal resize params error by ",err)
+			}
+			if err := c.SshConn.Session.WindowChange(resizeParams.Rows,resizeParams.Cols);err != nil{
+				log.Error("Change ssh windows size error by ",err)
+			}
+		}else{
+			terminals.WriteCmdLog(&build, cmd, userCode, c.Host,1)
+			_,err1  := c.SshConn.StdinPipe.Write(p)
+			if err1 != nil {
+				log.Error("Websocket message copy to docker error by ",err)
+				return
+			}
+		}
+	}
+}
+
 func (c *LinuxClient) Close(){
 	if c.Cli != nil {
 		// close linux client
@@ -141,4 +194,3 @@ func (c *LinuxClient) Close(){
 		}
 	}
 }
-
