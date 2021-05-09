@@ -1,8 +1,8 @@
 package linux
 
 import (
-	"github.com/spf13/viper"
-	"go-webshell/log"
+	globalConf "go-webshell/global/config"
+	"go-webshell/global/log"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"os"
@@ -12,7 +12,7 @@ import (
 func GetSshSigner() (ssh.Signer, error) {
 	dir,_ := os.Getwd()
 	log.Info("Linux path is",dir)
-	env := viper.GetString("Env")
+	env := globalConf.GetAppConfig().Env
 	cafile := filepath.Join(dir,"/config/",env,"/keys/linux/id_rsa")
 	key, err := ioutil.ReadFile(cafile)
 	if err != nil {

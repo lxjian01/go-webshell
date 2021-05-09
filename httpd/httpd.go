@@ -3,9 +3,9 @@ package httpd
 import (
 	"github.com/gin-gonic/gin"
 	"go-webshell/config"
+	"go-webshell/global/log"
 	"go-webshell/httpd/middlewares"
 	"go-webshell/httpd/routers"
-	"go-webshell/log"
 	"net"
 	"strconv"
 )

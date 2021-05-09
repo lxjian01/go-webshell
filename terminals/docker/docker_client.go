@@ -8,8 +8,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/gorilla/websocket"
-	"github.com/spf13/viper"
-	"go-webshell/log"
+	globalConf "go-webshell/global/config"
+	"go-webshell/global/log"
 	"go-webshell/terminals"
 	"net/http"
 	"os"
@@ -53,7 +53,7 @@ func NewDockerClient(host string) (*DockerClient, error) {
 func getOptions() tlsconfig.Options{
 	dir, _ := os.Getwd()
 	log.Info("Docker path is",dir)
-	env := viper.GetString("Env")
+	env := globalConf.GetAppConfig().Env
 	caFile := filepath.Join(dir,"/config/",env,"/keys/docker/ca.pem")
 	certFile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-cert.pem")
 	keyFile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-key.pem")

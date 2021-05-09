@@ -2,7 +2,7 @@ package middlewares
 
 import (
 	"github.com/gin-gonic/gin"
-	"go-webshell/log"
+	"go-webshell/global/log"
 	"time"
 )
 

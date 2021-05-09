@@ -1,7 +1,7 @@
 package linux
 
 import (
-	"go-webshell/log"
+	"go-webshell/global/log"
 	"golang.org/x/crypto/ssh"
 	"strings"
 )

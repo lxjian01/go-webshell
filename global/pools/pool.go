@@ -8,7 +8,7 @@ package pools
 
 import (
 	"github.com/panjf2000/ants/v2"
-	"go-webshell/log"
+	"go-webshell/global/log"
 )
 
 

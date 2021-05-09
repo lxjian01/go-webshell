@@ -3,10 +3,10 @@ package webshell
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go-webshell/global/log"
+	"go-webshell/global/pools"
 	"go-webshell/httpd/middlewares"
 	"go-webshell/httpd/services"
-	"go-webshell/log"
-	"go-webshell/pools"
 	"go-webshell/terminals"
 	"go-webshell/terminals/docker"
 )

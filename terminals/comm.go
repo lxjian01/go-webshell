@@ -3,9 +3,9 @@ package terminals
 import (
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/spf13/viper"
+	globalConf "go-webshell/global/config"
+	"go-webshell/global/log"
 	"go-webshell/httpd/services"
-	"go-webshell/log"
 	"go-webshell/utils"
 	"net/http"
 	"os"
@@ -60,7 +60,7 @@ func (tw *TerminalWebsocket) SendErrorMsg()  {
 }
 
 func CreateRecord(userCode string, host string) (*Record,error){
-	recordDir := viper.GetString("RecordDir")
+	recordDir := globalConf.GetAppConfig().RecordDir
 	if !utils.IsExist(recordDir){
 		_, err := utils.CreateDir(recordDir)
 		if err != nil {

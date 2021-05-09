@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/gorilla/websocket"
-	"github.com/spf13/viper"
-	"go-webshell/log"
+	globalConf "go-webshell/global/config"
+	"go-webshell/global/log"
 	"go-webshell/terminals"
 	"golang.org/x/crypto/ssh"
 	"io"
@@ -54,7 +54,7 @@ func publicKeyAuthFunc(singer ssh.Signer) ssh.AuthMethod{
 func NewSshClient(host string) (*LinuxClient, error) {
 	var c LinuxClient
 	c.Host = host
-	LinuxUser := viper.GetString("LinuxUser")
+	LinuxUser := globalConf.GetAppConfig().LinuxUser
 	config := &ssh.ClientConfig{
 		Timeout:         time.Second * 5,
 		User:            LinuxUser,
