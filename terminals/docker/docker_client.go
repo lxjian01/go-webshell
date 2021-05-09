@@ -27,7 +27,6 @@ type DockerClient struct{
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
-	Record *terminals.Record
 }
 
 func NewDockerClient(host string) (*DockerClient, error) {
@@ -112,7 +111,7 @@ func (c *DockerClient) ContainerExecResize(height uint, width uint) error{
 }
 
 // read docker message to send websocket
-func (c *DockerClient) DockerReadWebsocketWrite(ws *websocket.Conn){
+func (c *DockerClient) DockerReadWebsocketWrite(t *terminals.Terminal){
 	for {
 		// docker reader and websocket writer
 		buf := make([]byte, 10240)
@@ -126,8 +125,8 @@ func (c *DockerClient) DockerReadWebsocketWrite(ws *websocket.Conn){
 		//b := strings.ReplaceAll(a, "]", "")
 		//fmt.Println(b)
 		b := string(buf[:n])
-		terminals.WriteRecord(c.Record, b)
-		err = ws.WriteMessage(websocket.BinaryMessage, buf)
+		t.WriteRecord(b)
+		err = t.Ws.WriteMessage(websocket.BinaryMessage, buf)
 		if err != nil {
 			log.Error("Docker message write to websocket error by",err)
 			return
@@ -174,15 +173,8 @@ func (c *DockerClient) Close() {
 		}else{
 			log.Infof("Close docker client ok by exec id is %s \n", c.execId)
 		}
-		// close record file
-		if c.Record != nil {
-			if err := c.Record.File.Close(); err != nil{
-				log.Errorf("Start close docker client record exec id %s error by %s \n", c.execId, err.Error())
-			}else{
-				log.Infof("Close docker client record exec id %s ok", c.execId)
-			}
-			c.Response.Close()
-			log.Infof("End close docker client response by exec id is %s ok \n", c.execId)
-		}
+
+		c.Response.Close()
+		log.Infof("End close docker client response by exec id is %s ok \n", c.execId)
 	}
 }

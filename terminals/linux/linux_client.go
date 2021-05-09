@@ -115,7 +115,7 @@ func (c *LinuxClient) NewSession(cols, rows int) error {
 	return nil
 }
 
-func (c *LinuxClient) LinuxReadWebsocketWrite(ws *websocket.Conn){
+func (c *LinuxClient) LinuxReadWebsocketWrite(t *terminals.Terminal){
 	for {
 		// linux reader and websocket writer
 		buf := make([]byte, 1024)
@@ -125,8 +125,8 @@ func (c *LinuxClient) LinuxReadWebsocketWrite(ws *websocket.Conn){
 			return
 		}
 		cmd := string(buf[:n])
-		terminals.WriteRecord(c.Record,cmd)
-		err1 := ws.WriteMessage(websocket.BinaryMessage, buf)
+		t.WriteRecord(cmd)
+		err1 := t.Ws.WriteMessage(websocket.BinaryMessage, buf)
 		if err1 != nil {
 			log.Error("Docker message write to websocket error by ",err1)
 			return

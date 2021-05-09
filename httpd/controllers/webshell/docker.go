@@ -19,13 +19,13 @@ func WsConnectDocker(c *gin.Context){
 	host := c.Param("host")
 	log.Infof("%s %s %d %s\n",projectCode,moduleCode,deployJobHostId,host)
 	// 初始化websocket
-	tw, err := terminals.NewTerminalWebsocket(c.Writer, c.Request, nil)
+	terminal, err := terminals.NewTerminal(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Error("Init websocket error by",err)
 		return
 	}
 	log.Info("Websocket connect ok")
-	defer tw.Ws.Close()
+	defer terminal.Close()
 
 	// 获取登陆用户信息
 	loginUser := middlewares.GetLoginUser()
@@ -34,7 +34,7 @@ func WsConnectDocker(c *gin.Context){
 	// 定义client
 	var dockerCli *docker.DockerClient
 	// websocket close handler
-	tw.Ws.SetCloseHandler(func(code int, text string) error {
+	terminal.Ws.SetCloseHandler(func(code int, text string) error {
 		if dockerCli != nil{
 			dockerCli.Close()
 			// add login out record
@@ -46,26 +46,25 @@ func WsConnectDocker(c *gin.Context){
 	dockerCli, err = docker.NewDockerClient(host)
 	if err != nil {
 		log.Errorf("New docker client error by %v \n", err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
 	// container exec
 	container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
 	if err := dockerCli.ContainerExecCreate(container);err != nil{
 		log.Error("Create container exec error by",err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
-	record,err := terminals.CreateRecord(loginUser.UserCode, host)
+	err = terminal.CreateRecord(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by",err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
-	dockerCli.Record = record
 	err = pools.Pool.Submit(func() {
-		dockerCli.DockerReadWebsocketWrite(tw.Ws)
+		dockerCli.DockerReadWebsocketWrite(terminal)
 	})
 	if err != nil{
 		log.Error("Pool submit docker shell error by",err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
-	dockerCli.DockerWriteWebsocketRead(tw.Ws, loginUser.UserCode)
+	dockerCli.DockerWriteWebsocketRead(terminal.Ws, loginUser.UserCode)
 }

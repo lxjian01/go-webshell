@@ -17,13 +17,13 @@ func WsConnectLinux(c *gin.Context){
 	deployJobHostId := c.Param("deploy_job_host_id")
 	host := c.Param("host")
 	log.Infof("%s %s %d %s \n",projectCode,moduleCode,deployJobHostId,host)
-	tw, err := terminals.NewTerminalWebsocket(c.Writer, c.Request, nil)
+	terminal, err := terminals.NewTerminal(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Error("Init websocket error by ",err)
 		return
 	}
 	log.Info("Websocket connect ok")
-	defer tw.Ws.Close()
+	defer terminal.Ws.Close()
 
 	// 获取登陆用户信息
 	loginUser := middlewares.GetLoginUser()
@@ -31,7 +31,7 @@ func WsConnectLinux(c *gin.Context){
 	var linuxCli *linux.LinuxClient
 	var loginId int64
 	// websocket close handler
-	tw.Ws.SetCloseHandler(func(code int, text string) error {
+	terminal.Ws.SetCloseHandler(func(code int, text string) error {
 		if linuxCli != nil{
 			linuxCli.Close()
 			services.UpdateLoginRecord(loginId)
@@ -41,27 +41,26 @@ func WsConnectLinux(c *gin.Context){
 	linuxCli, err = linux.NewSshClient(host)
 	if err != nil{
 		log.Error("Init ssh client error by ",err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
 	if err := linuxCli.NewSession(100,100);err != nil{
 		log.Error("New ssh connect error by ",err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
 	// add login record
 	loginId = services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host, deployJobHostId)
-	record,err := terminals.CreateRecord(loginUser.UserCode, host)
+	err = terminal.CreateRecord(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by ",err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
-	linuxCli.Record = record
 
 	err = pools.Pool.Submit(func() {
-		linuxCli.LinuxReadWebsocketWrite(tw.Ws)
+		linuxCli.LinuxReadWebsocketWrite(terminal)
 	})
 	if err != nil{
 		log.Error("Pool submit linux shell error by",err)
-		tw.SendErrorMsg()
+		terminal.SendErrorMsg()
 	}
-	linuxCli.LinuxWriteWebsocketRead(tw.Ws, loginUser.UserCode)
+	linuxCli.LinuxWriteWebsocketRead(terminal.Ws, loginUser.UserCode)
 }
