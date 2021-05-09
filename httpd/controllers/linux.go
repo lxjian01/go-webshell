@@ -25,12 +25,11 @@ func WsConnectLinux(c *gin.Context){
 		return
 	}
 	log.Info("Websocket connect ok")
+	defer ws.Close()
 	// 获取登陆用户信息
 	loginUser := getLoginUser(c,ws)
 	// init linux client
-	linuxCli := &linux.LinuxClient{
-		Host: host,
-	}
+	var linuxCli *linux.LinuxClient
 	var loginId int64
 	// websocket close handler
 	ws.SetCloseHandler(func(code int, text string) error {
@@ -38,32 +37,33 @@ func WsConnectLinux(c *gin.Context){
 			linuxCli.Close()
 			services.UpdateLoginRecord(loginId)
 		}
-		// add login out record
 		return nil
 	})
-	if err := linuxCli.InitSshClient();err != nil{
+	linuxCli, err = linux.NewSshClient(host)
+	if err != nil{
 		log.Error("Init ssh client error by ",err)
 		wsSendErrorMsg(ws,"----error----")
-		ws.Close()
 	}
 	if err := linuxCli.NewSession(100,100);err != nil{
 		log.Error("New ssh connect error by ",err)
 		wsSendErrorMsg(ws,"----error----")
-		ws.Close()
 	}
 	// add login record
-	loginId = services.InsertLoginRecord(projectCode, moduleCode,host,deployJobHostId,loginUser.UserCode)
-	record,err := terminals.CreateRecord(host,loginUser.UserCode)
+	loginId = services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host, deployJobHostId)
+	record,err := terminals.CreateRecord(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by ",err)
 		wsSendErrorMsg(ws,"----error----")
-		ws.Close()
 	}
 	linuxCli.Record = record
 
-	pools.Pool.Submit(func() {
-		readLinuxToSendWebsocket(ws,linuxCli)
+	err = pools.Pool.Submit(func() {
+		readLinuxToSendWebsocket(ws, linuxCli)
 	})
+	if err != nil{
+		log.Error("Pool submit linux shell error by",err)
+		wsSendErrorMsg(ws,"----error----")
+	}
 	var build strings.Builder
 	for {
 		// linux writer and websocket reader

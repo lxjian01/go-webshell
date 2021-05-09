@@ -28,11 +28,9 @@ func (w *wsBufferWriter) Write(p []byte) (int, error) {
 }
 
 type LinuxClient struct {
-	Host string
 	Cli *ssh.Client
 	SshConn *SshConn
 	Record *terminals.Record
-	IsClose bool
 }
 
 // connect to ssh server using ssh session.
@@ -45,11 +43,12 @@ type SshConn struct {
 	Session     *ssh.Session
 }
 
-func (c *LinuxClient) publicKeyAuthFunc(singer ssh.Signer) ssh.AuthMethod{
+func publicKeyAuthFunc(singer ssh.Signer) ssh.AuthMethod{
 	return ssh.PublicKeys(singer)
 }
 
-func (c *LinuxClient) InitSshClient() error {
+func NewSshClient(host string) (*LinuxClient, error) {
+	var c LinuxClient
 	LinuxUser := viper.GetString("LinuxUser")
 	config := &ssh.ClientConfig{
 		Timeout:         time.Second * 5,
@@ -57,15 +56,15 @@ func (c *LinuxClient) InitSshClient() error {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), //这个可以， 但是不够安全
 		//HostKeyCallback: hostKeyCallBackFunc(h.Host),
 	}
-	singer,err := terminals.GetSshSigner()
+	singer, err := GetSshSigner()
 	if err != nil{
-		return err
+		return nil, err
 	}
-	config.Auth = []ssh.AuthMethod{c.publicKeyAuthFunc(singer)}
-	addr := net.JoinHostPort(c.Host, strconv.Itoa(22))
-	cli, err := ssh.Dial("tcp", addr, config)
+	config.Auth = []ssh.AuthMethod{publicKeyAuthFunc(singer)}
+	addr := net.JoinHostPort(host, strconv.Itoa(22))
+	cli, err1 := ssh.Dial("tcp", addr, config)
 	c.Cli = cli
-	return err
+	return &c, err1
 }
 
 // setup ssh shell session
@@ -112,8 +111,15 @@ func (c *LinuxClient) NewSession(cols, rows int) error {
 }
 
 func (c *LinuxClient) Close(){
-	if c.IsClose != true{
-		c.Record.File.Close()
+	if c.Cli != nil {
+		// close linux client
+		if err := c.Cli.Close();err != nil{
+			log.Error("Close ssh client error by",err)
+		}else{
+			log.Info("Close ssh client ok")
+		}
+
+		// close ssh connection
 		if err := c.SshConn.StdinPipe.Close();err != nil{
 			log.Error("Close ssh connect stdin pipe error by",err)
 		}else{
@@ -124,13 +130,15 @@ func (c *LinuxClient) Close(){
 		}else{
 			log.Info("Close ssh connect session ok")
 		}
-		if err := c.Cli.Close();err != nil{
-			log.Error("Close ssh client error by",err)
-		}else{
-			log.Info("Close ssh client ok")
+
+		// close record file
+		if c.Record != nil {
+			if err := c.Record.File.Close(); err != nil{
+				log.Error("Start close docker client record error by ", err.Error())
+			}else{
+				log.Info("Close docker client record ok")
+			}
 		}
 	}
-	c.IsClose = true
-
 }
 

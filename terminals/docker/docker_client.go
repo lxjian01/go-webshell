@@ -20,9 +20,6 @@ var (
 	)
 
 type DockerClient struct{
-	//UserCode string
-	//Host  string
-	//Container string
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
@@ -44,11 +41,8 @@ func NewDockerClient(host string) (*DockerClient, error) {
 	}
 	hostCon := fmt.Sprintf("tcp://%s:2375", host)
 	cli, err1 := client.NewClient(hostCon, version,httpClient,nil)
-	if err1 != nil{
-		return nil, err1
-	}
 	c.cli = cli
-	return &c,nil
+	return &c, err1
 }
 
 func getOptions() tlsconfig.Options{
@@ -116,16 +110,19 @@ func (c *DockerClient) Close() {
 	// close docker client
 	if c.cli != nil {
 		if err := c.cli.Close();err != nil {
-			log.Error("Close docker client error by exec id is",c.execId)
+			log.Errorf("Close docker client exec id is %s error by % \n", c.execId, err.Error())
 		}else{
-			log.Info("Close docker client ok by exec id is",c.execId)
+			log.Infof("Close docker client ok by exec id is %s \n", c.execId)
 		}
-	}
-	// close record file
-	if c.Record != nil {
-		c.Record.File.Close()
-		log.Info("Start close docker client conn by exec id is",c.execId)
-		c.Response.Close()
-		log.Info("End close docker client conn by exec id is",c.execId)
+		// close record file
+		if c.Record != nil {
+			if err := c.Record.File.Close(); err != nil{
+				log.Errorf("Start close docker client record exec id %s error by %s \n", c.execId, err.Error())
+			}else{
+				log.Infof("Close docker client record exec id %s ok", c.execId)
+			}
+			c.Response.Close()
+			log.Infof("End close docker client response by exec id is %s ok \n", c.execId)
+		}
 	}
 }

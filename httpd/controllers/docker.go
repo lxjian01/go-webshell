@@ -66,7 +66,7 @@ func WsConnectDocker(c *gin.Context){
 		readDockerToSendWebsocket(ws,dockerCli)
 	})
 	if err != nil{
-		log.Error("Pool submit error by",err)
+		log.Error("Pool submit docker shell error by",err)
 		wsSendErrorMsg(ws,"----error----")
 	}
 	var build strings.Builder
