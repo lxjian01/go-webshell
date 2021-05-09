@@ -2,7 +2,7 @@ package services
 
 
 // add login record
-func InsertLoginRecord(projectCode string, moduleCode string,host string,deployJobJostId string,userCode string) int64 {
+func InsertLoginRecord(userCode string, projectCode string, moduleCode string,host string,deployJobJostId string) int64 {
 	return 0
 }
 
@@ -12,11 +12,11 @@ func UpdateLoginRecord(id int64) {
 }
 
 // 添加Docker操作记录
-func AddDockerOperRecord(cmd string,userCode string,host string) {
+func AddDockerOperRecord(userCode string, host string, cmd string) {
 
 }
 
 // 添加lunux操作记录
-func AddLinuxOperRecord(cmd string,userCode string,host string) {
+func AddLinuxOperRecord(userCode string, host string, cmd string) {
 
 }

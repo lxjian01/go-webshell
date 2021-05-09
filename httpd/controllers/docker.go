@@ -27,58 +27,48 @@ func WsConnectDocker(c *gin.Context){
 		return
 	}
 	log.Info("Websocket connect ok")
+	defer ws.Close()
 
 	// 获取登陆用户信息
 	loginUser := getLoginUser(c,ws)
+	// add login record
+	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host,deployJobHostId)
 	// 定义client
 	var dockerCli *docker.DockerClient
-	var loginId int64
 	// websocket close handler
 	ws.SetCloseHandler(func(code int, text string) error {
-		if !dockerCli.IsEmpty(){
+		if dockerCli != nil{
 			dockerCli.Close()
 			// add login out record
 			services.UpdateLoginRecord(loginId)
 		}
 		return nil
 	})
-
-	// init docker client
-	container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
-	dockerCli = &docker.DockerClient{
-		UserCode: loginUser.UserCode,
-		Host: host,
-		Container:container,
-	}
-
-	// add login record
-	loginId = services.InsertLoginRecord(projectCode, moduleCode,host,deployJobHostId,loginUser.UserCode)
-
-	if err := dockerCli.InitClient();err != nil{
-		log.Error("Init client error by",err)
+	// new docker client
+	dockerCli, err = docker.NewDockerClient(host)
+	if err != nil {
+		log.Errorf("New docker client error by %v \n", err)
 		wsSendErrorMsg(ws,"----error----")
-		ws.Close()
 	}
-	if err := dockerCli.ContainerExecCreate();err != nil{
+	// container exec
+	container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
+	if err := dockerCli.ContainerExecCreate(container);err != nil{
 		log.Error("Create container exec error by",err)
 		wsSendErrorMsg(ws,"----error----")
-		ws.Close()
 	}
-	if err := dockerCli.ContainerExecAttach();err != nil{
-		log.Error("Attach container exec error by",err)
-		wsSendErrorMsg(ws,"----error----")
-		ws.Close()
-	}
-	record,err := terminals.CreateRecord(host,loginUser.UserCode)
+	record,err := terminals.CreateRecord(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by",err)
 		wsSendErrorMsg(ws,"----error----")
-		ws.Close()
 	}
 	dockerCli.Record = record
-	pools.Pool.Submit(func() {
+	err = pools.Pool.Submit(func() {
 		readDockerToSendWebsocket(ws,dockerCli)
 	})
+	if err != nil{
+		log.Error("Pool submit error by",err)
+		wsSendErrorMsg(ws,"----error----")
+	}
 	var build strings.Builder
 	for {
 		// docker writer and websocket reader

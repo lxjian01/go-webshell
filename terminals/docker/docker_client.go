@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 )
 
 var (
@@ -21,60 +20,55 @@ var (
 	)
 
 type DockerClient struct{
-	UserCode string
-	Host  string
-	Container string
+	//UserCode string
+	//Host  string
+	//Container string
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
 	Record *terminals.Record
 }
 
-
-
-func (c DockerClient) IsEmpty() bool {
-	return reflect.DeepEqual(c, DockerClient{})
-}
-
-func (c *DockerClient) InitClient() error {
-	options := c.getOptions()
-	tlsc, err := tlsconfig.Client(options)
+func NewDockerClient(host string) (*DockerClient, error) {
+	var c DockerClient
+	options := getOptions()
+	tlsConfig, err := tlsconfig.Client(options)
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return nil, err
 	}
 	httpClient := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: tlsc,
+			TLSClientConfig: tlsConfig,
 		},
 	}
-	hostCon := fmt.Sprintf("tcp://%s:2375",c.Host)
+	hostCon := fmt.Sprintf("tcp://%s:2375", host)
 	cli, err1 := client.NewClient(hostCon, version,httpClient,nil)
 	if err1 != nil{
-		return err1
+		return nil, err1
 	}
 	c.cli = cli
-	return nil
+	return &c,nil
 }
 
-func (c *DockerClient) getOptions() tlsconfig.Options{
-	dir,_ := os.Getwd()
+func getOptions() tlsconfig.Options{
+	dir, _ := os.Getwd()
 	log.Info("Docker path is",dir)
 	env := viper.GetString("Env")
 	caFile := filepath.Join(dir,"/config/",env,"/keys/docker/ca.pem")
-	certfile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-cert.pem")
-	keyfile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-key.pem")
+	certFile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-cert.pem")
+	keyFile :=  filepath.Join(dir,"/config/",env,"/keys/docker/client-key.pem")
 	options := tlsconfig.Options{
 		CAFile:            caFile,
-		CertFile:          certfile,
-		KeyFile:           keyfile,
+		CertFile:          certFile,
+		KeyFile:           keyFile,
 		InsecureSkipVerify: true,
 	}
 	return options
 }
 
-func (c *DockerClient) ContainerExecCreate() error{
-	cmds := []string{
+func (c *DockerClient) ContainerExecCreate(container string) error{
+	cmd := []string{
 		"/bin/sh",
 		"-c",
 		"TERM=xterm-256color; export TERM; /bin/bash"}
@@ -87,26 +81,29 @@ func (c *DockerClient) ContainerExecCreate() error{
 		AttachStdin:  true,
 		AttachStdout: true,
 		//Env: envs,
-		Cmd: cmds,
+		Cmd: cmd,
 		Tty:          true,
 		Detach:       true,
 	}
-	exec,err := c.cli.ContainerExecCreate(ctx,c.Container,execCreateConf)
+	exec,err := c.cli.ContainerExecCreate(ctx, container, execCreateConf)
+	if err != nil {
+		return err
+	}
 	c.execId = exec.ID
-	return err
-}
 
-func (c *DockerClient) ContainerExecAttach() error{
 	execAttachConf := types.ExecStartCheck{
 		Detach: false,
 		Tty: true,
 	}
-	conn,err := c.cli.ContainerExecAttach(ctx,c.execId,execAttachConf)
+	conn,err1 := c.cli.ContainerExecAttach(ctx,c.execId,execAttachConf)
+	if err1 != nil {
+		return err1
+	}
 	c.Response = conn
-	return err
+	return nil
 }
 
-func (c *DockerClient) ContainerExecResize(height uint,width uint) error{
+func (c *DockerClient) ContainerExecResize(height uint, width uint) error{
 	options := types.ResizeOptions{
 		Height:height,
 		Width: width,
@@ -116,13 +113,19 @@ func (c *DockerClient) ContainerExecResize(height uint,width uint) error{
 }
 
 func (c *DockerClient) Close() {
-	c.Record.File.Close()
-	log.Info("Start close docker client conn by exec id is",c.execId)
-	c.Response.Close()
-	log.Info("End close docker client conn by exec id is",c.execId)
-	if err := c.cli.Close();err != nil {
-		log.Error("Close docker client error by exec id is",c.execId)
-	}else{
-		log.Info("Close docker client ok by exec id is",c.execId)
+	// close docker client
+	if c.cli != nil {
+		if err := c.cli.Close();err != nil {
+			log.Error("Close docker client error by exec id is",c.execId)
+		}else{
+			log.Info("Close docker client ok by exec id is",c.execId)
+		}
+	}
+	// close record file
+	if c.Record != nil {
+		c.Record.File.Close()
+		log.Info("Start close docker client conn by exec id is",c.execId)
+		c.Response.Close()
+		log.Info("End close docker client conn by exec id is",c.execId)
 	}
 }

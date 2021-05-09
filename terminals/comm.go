@@ -17,7 +17,7 @@ type Record struct {
 	File *os.File
 }
 
-func CreateRecord(host string,userCode string) (*Record,error){
+func CreateRecord(userCode string, host string) (*Record,error){
 	recordDir := viper.GetString("RecordDir")
 	if !utils.IsExist(recordDir){
 		_, err := utils.CreateDir(recordDir)
@@ -42,7 +42,7 @@ func CreateRecord(host string,userCode string) (*Record,error){
 	return record,errw
 }
 
-func WriteRecord(record *Record,cmd string){
+func WriteRecord(record *Record, cmd string){
 	t := float64(utils.DateUnixNano() - record.StartTime * 1e9) / 1e9
 	cmdString := fmt.Sprintf("[%.6f,\"%s\",%s]\n",t,"o",cmd)
 	log.Info(cmdString)
@@ -52,7 +52,7 @@ func WriteRecord(record *Record,cmd string){
 	}
 }
 
-func GetSshSigner() (ssh.Signer,error) {
+func GetSshSigner() (ssh.Signer, error) {
 	dir,_ := os.Getwd()
 	log.Info("Linux path is",dir)
 	env := viper.GetString("Env")
