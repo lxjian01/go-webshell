@@ -34,7 +34,6 @@ type LinuxClient struct {
 	Host string
 	Cli *ssh.Client
 	SshConn *SshConn
-	Record *terminals.Record
 }
 
 // connect to ssh server using ssh session.
@@ -182,15 +181,6 @@ func (c *LinuxClient) Close(){
 			log.Error("Close ssh connect session error by",err)
 		}else{
 			log.Info("Close ssh connect session ok")
-		}
-
-		// close record file
-		if c.Record != nil {
-			if err := c.Record.File.Close(); err != nil{
-				log.Error("Start close docker client record error by ", err.Error())
-			}else{
-				log.Info("Close docker client record ok")
-			}
 		}
 	}
 }

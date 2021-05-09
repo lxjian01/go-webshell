@@ -1,12 +1,11 @@
 package kubernetes
 
-
 import (
 	"github.com/gorilla/websocket"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/remotecommand"
 	"io"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 // PtyHandler
@@ -16,7 +15,7 @@ type PtyHandler interface {
 	remotecommand.TerminalSizeQueue
 }
 
-func test()  {
+func NewClient()  {
 	// NewSPDYExecutor
 	req := GetClientset().CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -31,7 +30,7 @@ func test()  {
 		Stderr:    true,
 		TTY:       true,
 	}, scheme.ParameterCodec)
-	// kubeconfig := GetConfig()
+	//kubeconfig := GetConfig()
 	//executor, err := remotecommand.NewSPDYExecutor(kubeconfig, "POST", req.URL())
 	//if err != nil {
 	//	log.Printf("NewSPDYExecutor err: %v", err)
