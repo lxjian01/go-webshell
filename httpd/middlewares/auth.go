@@ -15,10 +15,14 @@ type LoginUser struct {
 	IsLeader bool     `json:"is_leader"`
 }
 
+var (
+	loginUser *LoginUser
+)
+
 // 判断用户书否登陆中间件
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userInfo := &LoginUser{
+		loginUser = &LoginUser{
 			UserId: 1,
 			UserCode: "jian.li",
 			UserName: "李健",
@@ -28,6 +32,9 @@ func Auth() gin.HandlerFunc {
 			IsOps: true,
 			IsLeader: true,
 		}
-		c.Set("loginUser",userInfo)
 	}
+}
+
+func GetLoginUser() *LoginUser {
+	return loginUser
 }

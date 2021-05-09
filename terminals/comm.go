@@ -2,10 +2,12 @@ package terminals
 
 import (
 	"fmt"
+	"github.com/gorilla/websocket"
 	"github.com/spf13/viper"
 	"go-webshell/httpd/services"
 	"go-webshell/log"
 	"go-webshell/utils"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -22,6 +24,39 @@ type ResizeParams struct {
 	Cols    int      `json:"cols"`
 	Height  int      `json:"height"`
 	Width   int      `json:"width"`
+}
+
+type TerminalWebsocket struct {
+	Ws *websocket.Conn
+}
+
+func NewTerminalWebsocket(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*TerminalWebsocket, error) {
+	var tw TerminalWebsocket
+	var upgrader = websocket.Upgrader{
+		HandshakeTimeout:6*60,
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	ws, err := upgrader.Upgrade(w, r, responseHeader)
+	tw.Ws = ws
+	return &tw, err
+}
+
+// websocket send message
+func (tw *TerminalWebsocket) SendMsg(msg string)  {
+	if err := tw.Ws.WriteMessage(websocket.BinaryMessage,[]byte(msg));err != nil{
+		log.Errorf("Websocket write message %s error by %v \n",err)
+	}else{
+		log.Infof("Websocket write message %s ok by %v \n",err)
+	}
+}
+
+// websocket send message
+func (tw *TerminalWebsocket) SendErrorMsg()  {
+	tw.SendMsg("----error----")
 }
 
 func CreateRecord(userCode string, host string) (*Record,error){

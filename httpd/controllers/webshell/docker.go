@@ -3,6 +3,7 @@ package webshell
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go-webshell/httpd/middlewares"
 	"go-webshell/httpd/services"
 	"go-webshell/log"
 	"go-webshell/pools"
@@ -18,22 +19,22 @@ func WsConnectDocker(c *gin.Context){
 	host := c.Param("host")
 	log.Infof("%s %s %d %s\n",projectCode,moduleCode,deployJobHostId,host)
 	// 初始化websocket
-	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	tw, err := terminals.NewTerminalWebsocket(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Error("Init websocket error by",err)
 		return
 	}
 	log.Info("Websocket connect ok")
-	defer ws.Close()
+	defer tw.Ws.Close()
 
 	// 获取登陆用户信息
-	loginUser := getLoginUser(c,ws)
+	loginUser := middlewares.GetLoginUser()
 	// add login record
 	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host,deployJobHostId)
 	// 定义client
 	var dockerCli *docker.DockerClient
 	// websocket close handler
-	ws.SetCloseHandler(func(code int, text string) error {
+	tw.Ws.SetCloseHandler(func(code int, text string) error {
 		if dockerCli != nil{
 			dockerCli.Close()
 			// add login out record
@@ -45,26 +46,26 @@ func WsConnectDocker(c *gin.Context){
 	dockerCli, err = docker.NewDockerClient(host)
 	if err != nil {
 		log.Errorf("New docker client error by %v \n", err)
-		wsSendErrorMsg(ws,"----error----")
+		tw.SendErrorMsg()
 	}
 	// container exec
 	container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
 	if err := dockerCli.ContainerExecCreate(container);err != nil{
 		log.Error("Create container exec error by",err)
-		wsSendErrorMsg(ws,"----error----")
+		tw.SendErrorMsg()
 	}
 	record,err := terminals.CreateRecord(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by",err)
-		wsSendErrorMsg(ws,"----error----")
+		tw.SendErrorMsg()
 	}
 	dockerCli.Record = record
 	err = pools.Pool.Submit(func() {
-		dockerCli.DockerReadWebsocketWrite(ws)
+		dockerCli.DockerReadWebsocketWrite(tw.Ws)
 	})
 	if err != nil{
 		log.Error("Pool submit docker shell error by",err)
-		wsSendErrorMsg(ws,"----error----")
+		tw.SendErrorMsg()
 	}
-	dockerCli.DockerWriteWebsocketRead(ws, loginUser.UserCode)
+	dockerCli.DockerWriteWebsocketRead(tw.Ws, loginUser.UserCode)
 }
