@@ -103,6 +103,8 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 		return &size
 	case <-t.doneChan:
 		return nil
+	default:
+		return nil
 	}
 }
 
@@ -131,6 +133,10 @@ func (t *TerminalSession) Stderr() io.Writer {
 	return t
 }
 
+// Close close session
+func (t *TerminalSession) Close() error {
+	return t.wsConn.Close()
+}
 
 // Read called in a loop from remotecommand as long as the process is running
 func (t *TerminalSession) Read(p []byte) (int, error) {
@@ -162,10 +168,5 @@ func (t *TerminalSession) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return len(p), nil
-}
-
-// Close close session
-func (t *TerminalSession) Close() error {
-	return t.wsConn.Close()
 }
 
