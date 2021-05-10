@@ -1,62 +1,119 @@
 package kubernetes
 
 import (
+	"encoding/json"
+	"flag"
 	"github.com/gorilla/websocket"
+	"go-webshell/global/log"
+	"go-webshell/terminals"
 	"io"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/util/homedir"
+	"path/filepath"
+	"strings"
+	"time"
 )
 
-// PtyHandler
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
+	// Maximum message size allowed from peer.
+	maxMessageSize = 8192
+
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+
+	// Time to wait before force close on connection.
+	closeGracePeriod = 10 * time.Second
+
+	// EndOfTransmission end
+	EndOfTransmission = "\u0004"
+)
+
+// PtyHandler is what remotecommand expects from a pty
 type PtyHandler interface {
-	io.Reader
-	io.Writer
 	remotecommand.TerminalSizeQueue
+	Done()
+	Tty() bool
+	Stdin() io.Reader
+	Stdout() io.Writer
+	Stderr() io.Writer
 }
 
-func NewClient()  {
-	// NewSPDYExecutor
-	req := GetClientset().CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name("podName").
-		Namespace("namespace").
-		SubResource("exec")
-	req.VersionedParams(&v1.PodExecOptions{
-		Container: "",
-		Command: []string{"bash"},
-		Stdin:     true,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       true,
-	}, scheme.ParameterCodec)
-	//kubeconfig := GetConfig()
-	//executor, err := remotecommand.NewSPDYExecutor(kubeconfig, "POST", req.URL())
-	//if err != nil {
-	//	log.Printf("NewSPDYExecutor err: %v", err)
-	//	panic(err)
-	//}
-	//// 用IO读写替换 os stdout
-	//ptyHandler := PtyHandler{
-	//	os.Stdin,
-	//	os.Stdout,
-	//}
-	//// Stream
-	//err = executor.Stream(remotecommand.StreamOptions{
-	//	Stdin:             ptyHandler,
-	//	Stdout:            ptyHandler,
-	//	Stderr:            ptyHandler,
-	//	TerminalSizeQueue: ptyHandler,
-	//	Tty:               true,
-	//})
-}
-
-// TerminalSession
+// TerminalSession implements PtyHandler
 type TerminalSession struct {
 	wsConn   *websocket.Conn
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
+	tty      bool
 }
+
+// NewTerminalSession create TerminalSession
+func NewTerminalSession(ws *websocket.Conn) (*TerminalSession, error) {
+	session := &TerminalSession{
+		wsConn:   ws,
+		tty:      true,
+		sizeChan: make(chan remotecommand.TerminalSize),
+		doneChan: make(chan struct{}),
+	}
+	return session, nil
+}
+
+// Exec exec into a pod
+func Exec(ptyHandler PtyHandler, namespace, podName string) error {
+	var kubeconfigPath *string
+	if home := homedir.HomeDir(); home != "" {
+		kubeconfigPath = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	} else {
+		kubeconfigPath = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	flag.Parse()
+
+	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfigPath)
+	if err != nil {
+		panic(err)
+	}
+	clientset, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+	req := clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec")
+
+	req.VersionedParams(&v1.PodExecOptions{
+		// Container: containerName,
+		Command:   []string{"bash"},
+		Stdin:     !(ptyHandler.Stdin() == nil),
+		Stdout:    !(ptyHandler.Stdout() == nil),
+		Stderr:    !(ptyHandler.Stderr() == nil),
+		TTY:       ptyHandler.Tty(),
+	}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	err = executor.Stream(remotecommand.StreamOptions{
+		Stdin:             ptyHandler.Stdin(),
+		Stdout:            ptyHandler.Stdout(),
+		Stderr:            ptyHandler.Stderr(),
+		TerminalSizeQueue: ptyHandler,
+		Tty:               ptyHandler.Tty(),
+	})
+	return err
+}
+
 
 // Next called in a loop from remotecommand as long as the process is running
 func (t *TerminalSession) Next() *remotecommand.TerminalSize {
@@ -67,50 +124,67 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 		return nil
 	}
 }
-//// Read called in a loop from remotecommand as long as the process is running
-//func (t *TerminalSession) Read(p []byte) (int, error) {
-//	_, message, err := t.wsConn.ReadMessage()
-//	if err != nil {
-//		log.Printf("read message err: %v", err)
-//		return copy(p, webshell.EndOfTransmission), err
-//	}
-//	var msg webshell.TerminalMessage
-//	if err := json.Unmarshal([]byte(message), &msg); err != nil {
-//		log.Printf("read parse message err: %v", err)
-//		// return 0, nil
-//		return copy(p, webshell.EndOfTransmission), err
-//	}
-//	switch msg.Operation {
-//	case "stdin":
-//		return copy(p, msg.Data), nil
-//	case "resize":
-//		t.sizeChan <- remotecommand.TerminalSize{Width: msg.Cols, Height: msg.Rows}
-//		return 0, nil
-//	default:
-//		log.Printf("unknown message type '%s'", msg.Operation)
-//		// return 0, nil
-//		return copy(p, webshell.EndOfTransmission), fmt.Errorf("unknown message type '%s'", msg.Operation)
-//	}
-//}
-//
-//// Write called from remotecommand whenever there is any output
-//func (t *TerminalSession) Write(p []byte) (int, error) {
-//	msg, err := json.Marshal(webshell.TerminalMessage{
-//		Operation: "stdout",
-//		Data:      string(p),
-//	})
-//	if err != nil {
-//		log.Printf("write parse message err: %v", err)
-//		return 0, err
-//	}
-//	if err := t.wsConn.WriteMessage(websocket.TextMessage, msg); err != nil {
-//		log.Printf("write message err: %v", err)
-//		return 0, err
-//	}
-//	return len(p), nil
-//}
+
+// Done done, must call Done() before connection close, or Next() would not exits.
+func (t *TerminalSession) Done() {
+	close(t.doneChan)
+}
+
+// Tty ...
+func (t *TerminalSession) Tty() bool {
+	return t.tty
+}
+
+// Stdin ...
+func (t *TerminalSession) Stdin() io.Reader {
+	return t
+}
+
+// Stdout ...
+func (t *TerminalSession) Stdout() io.Writer {
+	return t
+}
+
+// Stderr ...
+func (t *TerminalSession) Stderr() io.Writer {
+	return t
+}
+
+
+// Read called in a loop from remotecommand as long as the process is running
+func (t *TerminalSession) Read(p []byte) (int, error) {
+	_, message, err := t.wsConn.ReadMessage()
+	if err != nil {
+		log.Error("Read websocket message error by",err)
+		return 0, nil
+	}
+	cmd := string(message)
+	if strings.HasPrefix(cmd, "{\"type\":\"resize\",\"rows\":"){
+		var resizeParams terminals.ResizeParams
+		if err := json.Unmarshal(message,&resizeParams);err != nil{
+			log.Error("Unmarshal resize params error by",err)
+		}
+		height := uint16(resizeParams.Rows)
+		width := uint16(resizeParams.Cols)
+		t.sizeChan <- remotecommand.TerminalSize{Width: width, Height: height}
+		return 0, nil
+
+	}else {
+		return copy(p, message), nil
+	}
+}
+
+// Write called from remotecommand whenever there is any output
+func (t *TerminalSession) Write(p []byte) (int, error) {
+	if err := t.wsConn.WriteMessage(websocket.TextMessage, p); err != nil {
+		log.Warnf("write message err: %v \n", err)
+		return 0, err
+	}
+	return len(p), nil
+}
 
 // Close close session
 func (t *TerminalSession) Close() error {
 	return t.wsConn.Close()
 }
+

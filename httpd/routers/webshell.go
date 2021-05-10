@@ -11,5 +11,7 @@ func WebsocketRoutes(route *gin.Engine) {
 		webshell.GET("/docker/:project_code/:module_code/:host/:deploy_job_host_id/:token", webshell2.WsConnectDocker)
 
 		webshell.GET("/linux/:project_code/:module_code/:host/:deploy_job_host_id/:token", webshell2.WsConnectLinux)
+
+		webshell.GET("/kubernetes/:project_code/:module_code/:host/:deploy_job_host_id/:token", webshell2.WsConnectKubernetes)
 	}
 }
