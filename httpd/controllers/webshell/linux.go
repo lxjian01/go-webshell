@@ -28,22 +28,22 @@ func WsConnectLinux(c *gin.Context){
 	// 获取登陆用户信息
 	loginUser := middlewares.GetLoginUser()
 	// init linux client
-	var linuxCli *linux.LinuxClient
+	var linuxTerminal *linux.LinuxTerminal
 	var loginId int64
 	// websocket close handler
 	terminal.Ws.SetCloseHandler(func(code int, text string) error {
-		if linuxCli != nil{
-			linuxCli.Close()
+		if linuxTerminal != nil{
+			linuxTerminal.Close()
 			services.UpdateLoginRecord(loginId)
 		}
 		return nil
 	})
-	linuxCli, err = linux.NewSshClient(host)
+	linuxTerminal, err = linux.NewLinuxTerminal(host)
 	if err != nil{
 		log.Error("Init ssh client error by ",err)
 		terminal.SendErrorMsg()
 	}
-	if err := linuxCli.NewSession(100,100);err != nil{
+	if err := linuxTerminal.NewSession(100,100);err != nil{
 		log.Error("New ssh connect error by ",err)
 		terminal.SendErrorMsg()
 	}
@@ -56,11 +56,11 @@ func WsConnectLinux(c *gin.Context){
 	}
 
 	err = pools.Pool.Submit(func() {
-		linuxCli.LinuxReadWebsocketWrite(terminal)
+		linuxTerminal.LinuxReadWebsocketWrite(terminal)
 	})
 	if err != nil{
 		log.Error("Pool submit linux shell error by",err)
 		terminal.SendErrorMsg()
 	}
-	linuxCli.LinuxWriteWebsocketRead(terminal.Ws, loginUser.UserCode)
+	linuxTerminal.LinuxWriteWebsocketRead(terminal.Ws, loginUser.UserCode)
 }

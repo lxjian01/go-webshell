@@ -30,7 +30,7 @@ func (w *wsBufferWriter) Write(p []byte) (int, error) {
 	return w.buffer.Write(p)
 }
 
-type LinuxClient struct {
+type LinuxTerminal struct {
 	Host string
 	Cli *ssh.Client
 	SshConn *SshConn
@@ -50,8 +50,8 @@ func publicKeyAuthFunc(singer ssh.Signer) ssh.AuthMethod{
 	return ssh.PublicKeys(singer)
 }
 
-func NewSshClient(host string) (*LinuxClient, error) {
-	var c LinuxClient
+func NewLinuxTerminal(host string) (*LinuxTerminal, error) {
+	var c LinuxTerminal
 	c.Host = host
 	LinuxUser := globalConf.GetAppConfig().LinuxUser
 	config := &ssh.ClientConfig{
@@ -74,7 +74,7 @@ func NewSshClient(host string) (*LinuxClient, error) {
 // setup ssh shell session
 // set Session and StdinPipe here,
 // and the Session.Stdout and Session.Sdterr are also set.
-func (c *LinuxClient) NewSession(cols, rows int) error {
+func (c *LinuxTerminal) NewSession(cols, rows int) error {
 	sshSession, err := c.Cli.NewSession()
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (c *LinuxClient) NewSession(cols, rows int) error {
 	return nil
 }
 
-func (c *LinuxClient) LinuxReadWebsocketWrite(t *terminals.Terminal){
+func (c *LinuxTerminal) LinuxReadWebsocketWrite(t *terminals.Terminal){
 	for {
 		// linux reader and websocket writer
 		buf := make([]byte, 1024)
@@ -133,7 +133,7 @@ func (c *LinuxClient) LinuxReadWebsocketWrite(t *terminals.Terminal){
 	}
 }
 
-func (c *LinuxClient) LinuxWriteWebsocketRead(ws *websocket.Conn, userCode string){
+func (c *LinuxTerminal) LinuxWriteWebsocketRead(ws *websocket.Conn, userCode string){
 	var build strings.Builder
 	for {
 		// linux writer and websocket reader
@@ -162,7 +162,7 @@ func (c *LinuxClient) LinuxWriteWebsocketRead(ws *websocket.Conn, userCode strin
 	}
 }
 
-func (c *LinuxClient) Close(){
+func (c *LinuxTerminal) Close(){
 	if c.Cli != nil {
 		// close linux client
 		if err := c.Cli.Close();err != nil{

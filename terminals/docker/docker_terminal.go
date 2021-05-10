@@ -22,15 +22,15 @@ var (
 	ctx = context.Background()
 	)
 
-type DockerClient struct{
+type DockerTerminal struct{
 	Host string
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
 }
 
-func NewDockerClient(host string) (*DockerClient, error) {
-	var c DockerClient
+func NewDockerClient(host string) (*DockerTerminal, error) {
+	var c DockerTerminal
 	c.Host = host
 	options := getOptions()
 	tlsConfig, err := tlsconfig.Client(options)
@@ -65,7 +65,7 @@ func getOptions() tlsconfig.Options{
 	return options
 }
 
-func (c *DockerClient) ContainerExecCreate(container string) error{
+func (c *DockerTerminal) ContainerExecCreate(container string) error{
 	cmd := []string{
 		"/bin/sh",
 		"-c",
@@ -101,7 +101,7 @@ func (c *DockerClient) ContainerExecCreate(container string) error{
 	return nil
 }
 
-func (c *DockerClient) ContainerExecResize(height uint, width uint) error{
+func (c *DockerTerminal) ContainerExecResize(height uint, width uint) error{
 	options := types.ResizeOptions{
 		Height:height,
 		Width: width,
@@ -111,7 +111,7 @@ func (c *DockerClient) ContainerExecResize(height uint, width uint) error{
 }
 
 // read docker message to send websocket
-func (c *DockerClient) DockerReadWebsocketWrite(t *terminals.Terminal){
+func (c *DockerTerminal) DockerReadWebsocketWrite(t *terminals.Terminal){
 	for {
 		// docker reader and websocket writer
 		buf := make([]byte, 10240)
@@ -134,7 +134,7 @@ func (c *DockerClient) DockerReadWebsocketWrite(t *terminals.Terminal){
 	}
 }
 
-func (c *DockerClient) DockerWriteWebsocketRead(ws *websocket.Conn, userCode string){
+func (c *DockerTerminal) DockerWriteWebsocketRead(ws *websocket.Conn, userCode string){
 	var build strings.Builder
 	for {
 		// docker writer and websocket reader
@@ -165,7 +165,7 @@ func (c *DockerClient) DockerWriteWebsocketRead(ws *websocket.Conn, userCode str
 	}
 }
 
-func (c *DockerClient) Close() {
+func (c *DockerTerminal) Close() {
 	// close docker client
 	if c.cli != nil {
 		if err := c.cli.Close();err != nil {
