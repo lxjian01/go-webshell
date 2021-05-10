@@ -30,25 +30,25 @@ func WsConnectKubernetes(c *gin.Context){
 	// add login record
 	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host,deployJobHostId)
 	// 定义client
-	var dockerCli *kubernetes.TerminalSession
+	var kubernetesTerminal *kubernetes.KubernetesTerminal
 	// websocket close handler
 	terminal.Ws.SetCloseHandler(func(code int, text string) error {
-		if dockerCli != nil{
-			dockerCli.Close()
+		if kubernetesTerminal != nil{
+			kubernetesTerminal.Close()
 			// add login out record
 			services.UpdateLoginRecord(loginId)
 		}
 		return nil
 	})
 	// new docker client
-	dockerCli, err = kubernetes.NewTerminalSession(terminal.Ws)
+	kubernetesTerminal, err = kubernetes.NewKubernetesTerminal(terminal.Ws)
 	if err != nil {
 		log.Errorf("New docker client error by %v \n", err)
 		terminal.SendErrorMsg()
 	}
 	// container exec
 	//container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
-	if err := kubernetes.Exec(dockerCli,"default","nginx-deployment-b5bd67766-cvwjw");err != nil{
+	if err := kubernetes.Exec(kubernetesTerminal,"default","nginx-deployment-b5bd67766-cvwjw");err != nil{
 		log.Error("Create container exec error by",err)
 		terminal.SendErrorMsg()
 	}

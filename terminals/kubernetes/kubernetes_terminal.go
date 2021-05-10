@@ -22,17 +22,17 @@ type PtyHandler interface {
 	Stderr() io.Writer
 }
 
-// TerminalSession implements PtyHandler
-type TerminalSession struct {
+// KubernetesTerminal implements PtyHandler
+type KubernetesTerminal struct {
 	wsConn   *websocket.Conn
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
 	tty      bool
 }
 
-// NewTerminalSession create TerminalSession
-func NewTerminalSession(ws *websocket.Conn) (*TerminalSession, error) {
-	session := &TerminalSession{
+// create KubernetesTerminal
+func NewKubernetesTerminal(ws *websocket.Conn) (*KubernetesTerminal, error) {
+	session := &KubernetesTerminal{
 		wsConn:   ws,
 		tty:      true,
 		sizeChan: make(chan remotecommand.TerminalSize),
@@ -76,7 +76,7 @@ func Exec(ptyHandler PtyHandler, namespace, podName string) error {
 }
 
 // Next called in a loop from remotecommand as long as the process is running
-func (t *TerminalSession) Next() *remotecommand.TerminalSize {
+func (t *KubernetesTerminal) Next() *remotecommand.TerminalSize {
 	select {
 	case size := <-t.sizeChan:
 		return &size
@@ -86,37 +86,37 @@ func (t *TerminalSession) Next() *remotecommand.TerminalSize {
 }
 
 // Done done, must call Done() before connection close, or Next() would not exits.
-func (t *TerminalSession) Done() {
+func (t *KubernetesTerminal) Done() {
 	close(t.doneChan)
 }
 
 // Tty ...
-func (t *TerminalSession) Tty() bool {
+func (t *KubernetesTerminal) Tty() bool {
 	return t.tty
 }
 
 // Stdin ...
-func (t *TerminalSession) Stdin() io.Reader {
+func (t *KubernetesTerminal) Stdin() io.Reader {
 	return t
 }
 
 // Stdout ...
-func (t *TerminalSession) Stdout() io.Writer {
+func (t *KubernetesTerminal) Stdout() io.Writer {
 	return t
 }
 
 // Stderr ...
-func (t *TerminalSession) Stderr() io.Writer {
+func (t *KubernetesTerminal) Stderr() io.Writer {
 	return t
 }
 
 // Close close session
-func (t *TerminalSession) Close() error {
+func (t *KubernetesTerminal) Close() error {
 	return t.wsConn.Close()
 }
 
 // Read called in a loop from remotecommand as long as the process is running
-func (t *TerminalSession) Read(p []byte) (int, error) {
+func (t *KubernetesTerminal) Read(p []byte) (int, error) {
 	_, message, err := t.wsConn.ReadMessage()
 	if err != nil {
 		log.Error("Read websocket message error by",err)
@@ -140,7 +140,7 @@ func (t *TerminalSession) Read(p []byte) (int, error) {
 }
 
 // Write called from remotecommand whenever there is any output
-func (t *TerminalSession) Write(p []byte) (int, error) {
+func (t *KubernetesTerminal) Write(p []byte) (int, error) {
 	if err := t.wsConn.WriteMessage(websocket.TextMessage, p); err != nil {
 		log.Warnf("write message err: %v \n", err)
 		t.Close()
