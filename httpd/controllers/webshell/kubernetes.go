@@ -42,27 +42,6 @@ func WsConnectKubernetes(c *gin.Context){
 	})
 	// new docker client
 	dockerCli, err = kubernetes.NewTerminalSession(terminal.Ws)
-	//go func() {
-	//	// docker reader and websocket writer
-	//	buf := make([]byte, 10240)
-	//	n, err := dockerCli.Read(buf)
-	//	if err != nil {
-	//		log.Error("Read docker message error by",err)
-	//		return
-	//	}
-	//	//cmd := strconv.Quote(string(buf[:n]))
-	//	//a := strings.ReplaceAll(cmd, "[", "")
-	//	//b := strings.ReplaceAll(a, "]", "")
-	//	//fmt.Println(b)
-	//	b := string(buf[:n])
-	//	log.Errorf(b)
-	//	//t.WriteRecord(b)
-	//	err = terminal.Ws.WriteMessage(websocket.BinaryMessage, buf)
-	//	if err != nil {
-	//		log.Error("Docker message write to websocket error by",err)
-	//		return
-	//	}
-	//}()
 	if err != nil {
 		log.Errorf("New docker client error by %v \n", err)
 		terminal.SendErrorMsg()
@@ -73,17 +52,9 @@ func WsConnectKubernetes(c *gin.Context){
 		log.Error("Create container exec error by",err)
 		terminal.SendErrorMsg()
 	}
-	//err = terminal.CreateRecord(loginUser.UserCode, host)
-	//if err != nil{
-	//	log.Error("Create record error by",err)
-	//	terminal.SendErrorMsg()
-	//}
-	//err = pools.Pool.Submit(func() {
-	//	dockerCli.DockerReadWebsocketWrite(terminal)
-	//})
-	//if err != nil{
-	//	log.Error("Pool submit docker shell error by",err)
-	//	terminal.SendErrorMsg()
-	//}
-	//dockerCli.DockerWriteWebsocketRead(terminal.Ws, loginUser.UserCode)
+	err = terminal.CreateRecord(loginUser.UserCode, host)
+	if err != nil{
+		log.Error("Create record error by",err)
+		terminal.SendErrorMsg()
+	}
 }

@@ -2,18 +2,13 @@ package kubernetes
 
 import (
 	"encoding/json"
-	"flag"
 	"github.com/gorilla/websocket"
 	"go-webshell/global/log"
 	"go-webshell/terminals"
 	"io"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/client-go/util/homedir"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -69,23 +64,7 @@ func NewTerminalSession(ws *websocket.Conn) (*TerminalSession, error) {
 
 // Exec exec into a pod
 func Exec(ptyHandler PtyHandler, namespace, podName string) error {
-	var kubeconfigPath *string
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfigPath = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfigPath = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-	flag.Parse()
-
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfigPath)
-	if err != nil {
-		panic(err)
-	}
-	clientset, err = kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err)
-	}
-	req := clientset.CoreV1().RESTClient().Post().
+	req := GetClientset().CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
 		Namespace(namespace).
@@ -100,7 +79,7 @@ func Exec(ptyHandler PtyHandler, namespace, podName string) error {
 		TTY:       ptyHandler.Tty(),
 	}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	executor, err := remotecommand.NewSPDYExecutor(GetConfig(), "POST", req.URL())
 	if err != nil {
 		return err
 	}
@@ -113,7 +92,6 @@ func Exec(ptyHandler PtyHandler, namespace, podName string) error {
 	})
 	return err
 }
-
 
 // Next called in a loop from remotecommand as long as the process is running
 func (t *TerminalSession) Next() *remotecommand.TerminalSize {

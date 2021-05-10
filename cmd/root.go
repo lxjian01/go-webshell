@@ -9,6 +9,7 @@ import (
 	"go-webshell/global/log"
 	"go-webshell/global/pools"
 	"go-webshell/httpd"
+	k8s2 "go-webshell/terminals/kubernetes"
 	"os"
 	"path/filepath"
 )
@@ -31,6 +32,10 @@ var rootCmd = &cobra.Command{
 		log.Info("Starting init pool")
 		pools.InitPool(conf.PoolNum)
 		log.Info("Init pool ok")
+
+		log.Info("Starting init kubernetes clientset")
+		k8s2.InitClientset()
+		log.Info("Init kubernetes clientset ok")
 
 		// init gin server
 		log.Info("Starting init gin server")

@@ -16,6 +16,7 @@ var (
 
 func InitClientset() {
 	var kubeconfigPath *string
+	var err error
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfigPath = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
 	} else {
@@ -23,7 +24,7 @@ func InitClientset() {
 	}
 	flag.Parse()
 
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfigPath)
+	config, err = clientcmd.BuildConfigFromFlags("", *kubeconfigPath)
 	if err != nil {
 		panic(err)
 	}
