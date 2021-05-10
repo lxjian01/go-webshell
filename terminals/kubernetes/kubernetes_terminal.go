@@ -13,6 +13,11 @@ import (
 	"strings"
 )
 
+var (
+	// EndOfTransmission end
+	EndOfTransmission = "\u0004"
+)
+
 // PtyHandler is what remotecommand expects from a pty
 type PtyHandler interface {
 	remotecommand.TerminalSizeQueue
@@ -131,14 +136,14 @@ func (t *KubernetesTerminal) Read(p []byte) (int, error) {
 	_, message, err := t.WsConn.ReadMessage()
 	if err != nil {
 		log.Error("Read websocket message error by",err)
-		t.Close()
-		return 0, nil
+		return copy(p, EndOfTransmission), err
 	}
 	cmd := string(message)
 	if strings.HasPrefix(cmd, "{\"type\":\"resize\",\"rows\":"){
 		var resizeParams terminals.ResizeParams
 		if err := json.Unmarshal(message,&resizeParams);err != nil{
 			log.Error("Unmarshal resize params error by",err)
+			return copy(p, EndOfTransmission), err
 		}
 		height := uint16(resizeParams.Rows)
 		width := uint16(resizeParams.Cols)
