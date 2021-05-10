@@ -69,14 +69,17 @@ func Exec(ptyHandler PtyHandler, namespace, podName string) error {
 		Name(podName).
 		Namespace(namespace).
 		SubResource("exec")
-
+	cmd := []string{
+		"/bin/sh",
+		"-c",
+		"TERM=xterm-256color; export TERM; /bin/bash"}
 	req.VersionedParams(&v1.PodExecOptions{
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       true,
 		// Container: containerName,
-		Command:   []string{"bash"},
-		Stdin:     !(ptyHandler.Stdin() == nil),
-		Stdout:    !(ptyHandler.Stdout() == nil),
-		Stderr:    !(ptyHandler.Stderr() == nil),
-		TTY:       ptyHandler.Tty(),
+		Command:   cmd,
 	}, scheme.ParameterCodec)
 
 	executor, err := remotecommand.NewSPDYExecutor(GetConfig(), "POST", req.URL())
