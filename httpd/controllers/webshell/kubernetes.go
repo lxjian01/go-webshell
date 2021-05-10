@@ -5,7 +5,6 @@ import (
 	"go-webshell/global/log"
 	"go-webshell/httpd/middlewares"
 	"go-webshell/httpd/services"
-	"go-webshell/terminals"
 	"go-webshell/terminals/kubernetes"
 )
 
@@ -16,45 +15,36 @@ func WsConnectKubernetes(c *gin.Context){
 	deployJobHostId := c.Param("deploy_job_host_id")
 	host := c.Param("host")
 	log.Infof("%s %s %d %s\n",projectCode,moduleCode,deployJobHostId,host)
-	// 初始化websocket
-	terminal, err := terminals.NewTerminal(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Error("Init websocket error by",err)
-		return
-	}
-	log.Info("Websocket connect ok")
-	defer terminal.Close()
 
 	// 获取登陆用户信息
 	loginUser := middlewares.GetLoginUser()
 	// add login record
 	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host,deployJobHostId)
-	// 定义client
-	var kubernetesTerminal *kubernetes.KubernetesTerminal
+	// new kubernetes terminal
+	kubernetesTerminal, err := kubernetes.NewKubernetesTerminal(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Errorf("New docker client error by %v \n", err)
+		kubernetesTerminal.SendErrorMsg()
+	}
+	defer kubernetesTerminal.Close()
 	// websocket close handler
-	terminal.Ws.SetCloseHandler(func(code int, text string) error {
+	kubernetesTerminal.WsConn.SetCloseHandler(func(code int, text string) error {
 		if kubernetesTerminal != nil{
-			kubernetesTerminal.Close()
+
 			// add login out record
 			services.UpdateLoginRecord(loginId)
 		}
 		return nil
 	})
-	// new docker client
-	kubernetesTerminal, err = kubernetes.NewKubernetesTerminal(terminal.Ws)
-	if err != nil {
-		log.Errorf("New docker client error by %v \n", err)
-		terminal.SendErrorMsg()
-	}
 	// container exec
 	//container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
 	if err := kubernetes.Exec(kubernetesTerminal,"default","nginx-deployment-b5bd67766-cvwjw");err != nil{
 		log.Error("Create container exec error by",err)
-		terminal.SendErrorMsg()
+		kubernetesTerminal.SendErrorMsg()
 	}
-	err = terminal.CreateRecord(loginUser.UserCode, host)
+	err = kubernetesTerminal.CreateRecord(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by",err)
-		terminal.SendErrorMsg()
+		kubernetesTerminal.SendErrorMsg()
 	}
 }

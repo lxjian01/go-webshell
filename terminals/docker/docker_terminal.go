@@ -1,5 +1,6 @@
 package docker
 
+import "C"
 import (
 	"context"
 	"encoding/json"
@@ -23,15 +24,26 @@ var (
 	)
 
 type DockerTerminal struct{
+	terminals.BaseTerminal
 	Host string
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
 }
 
-func NewDockerClient(host string) (*DockerTerminal, error) {
+func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, host string) (*DockerTerminal, error) {
+
+	// 初始化websocket
+	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
+	if err != nil {
+		log.Error("Init websocket error by",err)
+		return nil, err
+	}
+	log.Info("Websocket connect ok")
+
 	var c DockerTerminal
 	c.Host = host
+	c.WsConn = wsConn
 	options := getOptions()
 	tlsConfig, err := tlsconfig.Client(options)
 	if err != nil {
@@ -111,13 +123,14 @@ func (c *DockerTerminal) ContainerExecResize(height uint, width uint) error{
 }
 
 // read docker message to send websocket
-func (c *DockerTerminal) DockerReadWebsocketWrite(t *terminals.Terminal){
+func (c *DockerTerminal) DockerReadWebsocketWrite(){
 	for {
 		// docker reader and websocket writer
 		buf := make([]byte, 10240)
 		n, err := c.Response.Conn.Read(buf)
 		if err != nil {
 			log.Error("Read docker message error by",err)
+			c.Close()
 			return
 		}
 		//cmd := strconv.Quote(string(buf[:n]))
@@ -125,8 +138,8 @@ func (c *DockerTerminal) DockerReadWebsocketWrite(t *terminals.Terminal){
 		//b := strings.ReplaceAll(a, "]", "")
 		//fmt.Println(b)
 		b := string(buf[:n])
-		t.WriteRecord(b)
-		err = t.Ws.WriteMessage(websocket.BinaryMessage, buf)
+		c.WriteRecord(b)
+		err = c.WsConn.WriteMessage(websocket.BinaryMessage, buf)
 		if err != nil {
 			log.Error("Docker message write to websocket error by",err)
 			return
@@ -134,13 +147,14 @@ func (c *DockerTerminal) DockerReadWebsocketWrite(t *terminals.Terminal){
 	}
 }
 
-func (c *DockerTerminal) DockerWriteWebsocketRead(ws *websocket.Conn, userCode string){
+func (c *DockerTerminal) DockerWriteWebsocketRead(userCode string){
 	var build strings.Builder
 	for {
 		// docker writer and websocket reader
-		_, p, err := ws.ReadMessage()
+		_, p, err := c.WsConn.ReadMessage()
 		if err != nil {
 			log.Error("Read websocket message error by",err)
+			c.Close()
 			return
 		}
 		cmd := string(p)
@@ -177,4 +191,6 @@ func (c *DockerTerminal) Close() {
 		c.Response.Close()
 		log.Infof("End close docker client response by exec id is %s ok \n", c.execId)
 	}
+	c.CloseWs()
+	c.CloseRecordFile()
 }

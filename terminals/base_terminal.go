@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 )
 
 type Record struct {
@@ -26,15 +27,14 @@ type ResizeParams struct {
 	Width   int      `json:"width"`
 }
 
-type Terminal struct {
-	Ws *websocket.Conn
+type BaseTerminal struct {
+	WsConn *websocket.Conn
 	record *Record
 }
 
-func NewTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*Terminal, error) {
-	var terminal Terminal
+func NewWebsocket(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*websocket.Conn, error) {
 	var upgrader = websocket.Upgrader{
-		HandshakeTimeout:6*60,
+		HandshakeTimeout: time.Second * 6,
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
@@ -42,13 +42,12 @@ func NewTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Hea
 		},
 	}
 	ws, err := upgrader.Upgrade(w, r, responseHeader)
-	terminal.Ws = ws
-	return &terminal, err
+	return ws, err
 }
 
 // websocket send message
-func (t *Terminal) SendMsg(msg string)  {
-	if err := t.Ws.WriteMessage(websocket.BinaryMessage,[]byte(msg));err != nil{
+func (t *BaseTerminal) SendMsg(msg string)  {
+	if err := t.WsConn.WriteMessage(websocket.BinaryMessage,[]byte(msg));err != nil{
 		log.Errorf("Websocket write message %s error by %v \n",err)
 	}else{
 		log.Infof("Websocket write message %s ok by %v \n",err)
@@ -56,11 +55,11 @@ func (t *Terminal) SendMsg(msg string)  {
 }
 
 // websocket send message
-func (t *Terminal) SendErrorMsg()  {
+func (t *BaseTerminal) SendErrorMsg()  {
 	t.SendMsg("----error----")
 }
 
-func (t *Terminal) CreateRecord(userCode string, host string) error {
+func (t *BaseTerminal) CreateRecord(userCode string, host string) error {
 	recordDir := globalConf.GetAppConfig().RecordDir
 	if !utils.IsExist(recordDir){
 		_, err := utils.CreateDir(recordDir)
@@ -86,7 +85,7 @@ func (t *Terminal) CreateRecord(userCode string, host string) error {
 	return errw
 }
 
-func (t *Terminal) WriteRecord(cmd string){
+func (t *BaseTerminal) WriteRecord(cmd string){
 	timeMinus := float64(utils.DateUnixNano() - t.record.StartTime * 1e9) / 1e9
 	cmdString := fmt.Sprintf("[%.6f,\"%s\",%s]\n",timeMinus,"o",cmd)
 	log.Info(cmdString)
@@ -96,16 +95,19 @@ func (t *Terminal) WriteRecord(cmd string){
 	}
 }
 
-func (t *Terminal) Close(){
-	// close websocket
-	if t.Ws != nil {
-		if err := t.Ws.Close(); err != nil{
+// close websocket
+func (t *BaseTerminal) CloseWs(){
+	if t.WsConn != nil {
+		if err := t.WsConn.Close(); err != nil{
 			log.Errorf("Start close websocket error by %s \n", err.Error())
 		}else{
 			log.Info("Close docker websocket ok")
 		}
 	}
-	// close record file
+}
+
+// close record file
+func (t *BaseTerminal) CloseRecordFile(){
 	if t.record != nil {
 		if err := t.record.File.Close(); err != nil{
 			log.Errorf("Start close terminal record error by %s \n", err.Error())

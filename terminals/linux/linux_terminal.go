@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"io"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +32,7 @@ func (w *wsBufferWriter) Write(p []byte) (int, error) {
 }
 
 type LinuxTerminal struct {
+	terminals.BaseTerminal
 	Host string
 	Cli *ssh.Client
 	SshConn *SshConn
@@ -50,9 +52,17 @@ func publicKeyAuthFunc(singer ssh.Signer) ssh.AuthMethod{
 	return ssh.PublicKeys(singer)
 }
 
-func NewLinuxTerminal(host string) (*LinuxTerminal, error) {
+func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, host string) (*LinuxTerminal, error) {
+	// 初始化websocket
+	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
+	if err != nil {
+		log.Error("Init websocket error by",err)
+		return nil, err
+	}
+	log.Info("Websocket connect ok")
 	var c LinuxTerminal
 	c.Host = host
+	c.WsConn = wsConn
 	LinuxUser := globalConf.GetAppConfig().LinuxUser
 	config := &ssh.ClientConfig{
 		Timeout:         time.Second * 5,
@@ -114,18 +124,19 @@ func (c *LinuxTerminal) NewSession(cols, rows int) error {
 	return nil
 }
 
-func (c *LinuxTerminal) LinuxReadWebsocketWrite(t *terminals.Terminal){
+func (c *LinuxTerminal) LinuxReadWebsocketWrite(){
 	for {
 		// linux reader and websocket writer
 		buf := make([]byte, 1024)
 		n, err := c.SshConn.StdoutPipe.Read(buf)
 		if err != nil {
 			log.Error("Read docker message error by ",err)
+			c.Close()
 			return
 		}
 		cmd := string(buf[:n])
-		t.WriteRecord(cmd)
-		err1 := t.Ws.WriteMessage(websocket.BinaryMessage, buf)
+		c.WriteRecord(cmd)
+		err1 := c.WsConn.WriteMessage(websocket.BinaryMessage, buf)
 		if err1 != nil {
 			log.Error("Docker message write to websocket error by ",err1)
 			return
@@ -133,13 +144,14 @@ func (c *LinuxTerminal) LinuxReadWebsocketWrite(t *terminals.Terminal){
 	}
 }
 
-func (c *LinuxTerminal) LinuxWriteWebsocketRead(ws *websocket.Conn, userCode string){
+func (c *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 	var build strings.Builder
 	for {
 		// linux writer and websocket reader
-		_, p, err := ws.ReadMessage()
+		_, p, err := c.WsConn.ReadMessage()
 		if err != nil {
 			log.Error("Read websocket message error by ",err)
+			c.Close()
 			return
 		}
 		cmd := string(p)
@@ -183,4 +195,6 @@ func (c *LinuxTerminal) Close(){
 			log.Info("Close ssh connect session ok")
 		}
 	}
+	c.CloseWs()
+	c.CloseRecordFile()
 }

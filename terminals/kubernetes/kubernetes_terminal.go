@@ -9,6 +9,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"net/http"
 	"strings"
 )
 
@@ -24,20 +25,28 @@ type PtyHandler interface {
 
 // KubernetesTerminal implements PtyHandler
 type KubernetesTerminal struct {
-	wsConn   *websocket.Conn
+	terminals.BaseTerminal
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
 	tty      bool
 }
 
 // create KubernetesTerminal
-func NewKubernetesTerminal(ws *websocket.Conn) (*KubernetesTerminal, error) {
+func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*KubernetesTerminal, error) {
+	// 初始化websocket
+	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
+	if err != nil {
+		log.Error("Init websocket error by",err)
+		return nil, err
+	}
+	log.Info("Websocket connect ok")
+
 	session := &KubernetesTerminal{
-		wsConn:   ws,
 		tty:      true,
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
 	}
+	session.WsConn = wsConn
 	return session, nil
 }
 
@@ -87,6 +96,7 @@ func (t *KubernetesTerminal) Next() *remotecommand.TerminalSize {
 
 // Done done, must call Done() before connection close, or Next() would not exits.
 func (t *KubernetesTerminal) Done() {
+	t.Close()
 	close(t.doneChan)
 }
 
@@ -111,13 +121,14 @@ func (t *KubernetesTerminal) Stderr() io.Writer {
 }
 
 // Close close session
-func (t *KubernetesTerminal) Close() error {
-	return t.wsConn.Close()
+func (t *KubernetesTerminal) Close() {
+	t.CloseWs()
+	t.CloseRecordFile()
 }
 
 // Read called in a loop from remotecommand as long as the process is running
 func (t *KubernetesTerminal) Read(p []byte) (int, error) {
-	_, message, err := t.wsConn.ReadMessage()
+	_, message, err := t.WsConn.ReadMessage()
 	if err != nil {
 		log.Error("Read websocket message error by",err)
 		t.Close()
@@ -141,7 +152,7 @@ func (t *KubernetesTerminal) Read(p []byte) (int, error) {
 
 // Write called from remotecommand whenever there is any output
 func (t *KubernetesTerminal) Write(p []byte) (int, error) {
-	if err := t.wsConn.WriteMessage(websocket.TextMessage, p); err != nil {
+	if err := t.WsConn.WriteMessage(websocket.TextMessage, p); err != nil {
 		log.Warnf("write message err: %v \n", err)
 		t.Close()
 		return 0, err
