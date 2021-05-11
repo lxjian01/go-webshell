@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+var (
+	build strings.Builder
+)
+
 // write data to WebSocket
 // the data comes from ssh server.
 type wsBufferWriter struct {
@@ -84,8 +88,8 @@ func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader htt
 // setup ssh shell session
 // set Session and StdinPipe here,
 // and the Session.Stdout and Session.Sdterr are also set.
-func (terminal *LinuxTerminal) NewSession(cols, rows int) error {
-	sshSession, err := terminal.Cli.NewSession()
+func (t *LinuxTerminal) NewSession(cols, rows int) error {
+	sshSession, err := t.Cli.NewSession()
 	if err != nil {
 		return err
 	}
@@ -120,22 +124,22 @@ func (terminal *LinuxTerminal) NewSession(cols, rows int) error {
 	if err := sshSession.Shell(); err != nil {
 		return err
 	}
-	terminal.SshConn = &SshConn{StdinPipe: stdinP,StdoutPipe:stdoutP,Session: sshSession}
+	t.SshConn = &SshConn{StdinPipe: stdinP,StdoutPipe:stdoutP,Session: sshSession}
 	return nil
 }
 
-func (terminal *LinuxTerminal) LinuxReadWebsocketWrite(){
+func (t *LinuxTerminal) LinuxReadWebsocketWrite(){
 	for {
 		// linux reader and websocket writer
 		buf := make([]byte, 1024)
-		n, err := terminal.SshConn.StdoutPipe.Read(buf)
+		n, err := t.SshConn.StdoutPipe.Read(buf)
 		if err != nil {
 			log.Error("Read docker message error by ",err)
 			return
 		}
 		cmd := string(buf[:n])
-		terminal.WriteRecord(cmd)
-		err1 := terminal.WsConn.WriteMessage(websocket.BinaryMessage, buf)
+		t.WriteRecord(cmd)
+		err1 := t.WsConn.WriteMessage(websocket.BinaryMessage, buf)
 		if err1 != nil {
 			log.Error("Docker message write to websocket error by ",err1)
 			return
@@ -143,11 +147,10 @@ func (terminal *LinuxTerminal) LinuxReadWebsocketWrite(){
 	}
 }
 
-func (terminal *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
-	var build strings.Builder
+func (t *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 	for {
 		// linux writer and websocket reader
-		_, p, err := terminal.WsConn.ReadMessage()
+		_, p, err := t.WsConn.ReadMessage()
 		if err != nil {
 			log.Error("Read websocket message error by ",err)
 			return
@@ -158,12 +161,12 @@ func (terminal *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 			if err := json.Unmarshal([]byte(cmd),&resizeParams);err != nil{
 				log.Error("Unmarshal resize params error by ",err)
 			}
-			if err := terminal.SshConn.Session.WindowChange(resizeParams.Rows,resizeParams.Cols);err != nil{
+			if err := t.SshConn.Session.WindowChange(resizeParams.Rows,resizeParams.Cols);err != nil{
 				log.Error("Change ssh windows size error by ",err)
 			}
 		}else{
-			terminals.WriteCmdLog(&build, cmd, userCode, terminal.host,1)
-			_,err1  := terminal.SshConn.StdinPipe.Write(p)
+			t.WriteCmdLog(&build, cmd, userCode, t.host,1)
+			_,err1  := t.SshConn.StdinPipe.Write(p)
 			if err1 != nil {
 				log.Error("Websocket message copy to docker error by ",err)
 				return
@@ -172,27 +175,27 @@ func (terminal *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 	}
 }
 
-func (terminal *LinuxTerminal) Close(){
-	if terminal.Cli != nil {
+func (t *LinuxTerminal) Close(){
+	if t.Cli != nil {
 		// close linux client
-		if err := terminal.Cli.Close();err != nil{
+		if err := t.Cli.Close();err != nil{
 			log.Error("Close ssh client error by",err)
 		}else{
 			log.Info("Close ssh client ok")
 		}
 
 		// close ssh connection
-		if err := terminal.SshConn.StdinPipe.Close();err != nil{
+		if err := t.SshConn.StdinPipe.Close();err != nil{
 			log.Error("Close ssh connect stdin pipe error by",err)
 		}else{
 			log.Info("Close ssh connect stdin pipe ok")
 		}
-		if err := terminal.SshConn.Session.Close();err != nil{
+		if err := t.SshConn.Session.Close();err != nil{
 			log.Error("Close ssh connect session error by",err)
 		}else{
 			log.Info("Close ssh connect session ok")
 		}
 	}
-	terminal.CloseWs()
-	terminal.CloseRecordFile()
+	t.CloseWs()
+	t.CloseRecordFile()
 }

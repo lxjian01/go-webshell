@@ -16,6 +16,7 @@ import (
 var (
 	// EndOfTransmission end
 	EndOfTransmission = "\u0004"
+	build strings.Builder
 )
 
 // PtyHandler is what remotecommand expects from a pty
@@ -34,7 +35,6 @@ type KubernetesTerminal struct {
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
 	tty      bool
-	build strings.Builder
 	userCode string
 }
 
@@ -153,7 +153,7 @@ func (t *KubernetesTerminal) Read(p []byte) (int, error) {
 		return 0, nil
 
 	}else {
-		terminals.WriteCmdLog(&t.build, cmd, t.userCode, "c.Host", 0)
+		t.WriteCmdLog(&build, cmd, t.userCode, "c.Host", 0)
 		return copy(p, message), nil
 	}
 }
