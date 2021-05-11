@@ -32,7 +32,6 @@ func WsConnectDocker(c *gin.Context){
 	// websocket close handler
 	dockerTerminal.WsConn.SetCloseHandler(func(code int, text string) error {
 		if dockerTerminal != nil{
-
 			// add login out record
 			services.UpdateLoginRecord(loginId)
 		}

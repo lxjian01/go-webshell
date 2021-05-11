@@ -34,10 +34,12 @@ type KubernetesTerminal struct {
 	sizeChan chan remotecommand.TerminalSize
 	doneChan chan struct{}
 	tty      bool
+	build strings.Builder
+	userCode string
 }
 
 // create KubernetesTerminal
-func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*KubernetesTerminal, error) {
+func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, userCode string) (*KubernetesTerminal, error) {
 	// 初始化websocket
 	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
 	if err != nil {
@@ -46,13 +48,14 @@ func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeade
 	}
 	log.Info("Websocket connect ok")
 
-	session := &KubernetesTerminal{
+	terminal := &KubernetesTerminal{
 		tty:      true,
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
+		userCode: userCode,
 	}
-	session.WsConn = wsConn
-	return session, nil
+	terminal.WsConn = wsConn
+	return terminal, nil
 }
 
 // Exec exec into a pod
@@ -101,7 +104,6 @@ func (t *KubernetesTerminal) Next() *remotecommand.TerminalSize {
 
 // Done done, must call Done() before connection close, or Next() would not exits.
 func (t *KubernetesTerminal) Done() {
-	t.Close()
 	close(t.doneChan)
 }
 
@@ -151,6 +153,7 @@ func (t *KubernetesTerminal) Read(p []byte) (int, error) {
 		return 0, nil
 
 	}else {
+		terminals.WriteCmdLog(&t.build, cmd, t.userCode, "c.Host", 0)
 		return copy(p, message), nil
 	}
 }
@@ -159,8 +162,7 @@ func (t *KubernetesTerminal) Read(p []byte) (int, error) {
 func (t *KubernetesTerminal) Write(p []byte) (int, error) {
 	if err := t.WsConn.WriteMessage(websocket.TextMessage, p); err != nil {
 		log.Warnf("write message err: %v \n", err)
-		t.Close()
-		return 0, err
+		return copy(p, EndOfTransmission), err
 	}
 	return len(p), nil
 }

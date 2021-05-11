@@ -21,7 +21,7 @@ func WsConnectKubernetes(c *gin.Context){
 	// add login record
 	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host,deployJobHostId)
 	// new kubernetes terminal
-	kubernetesTerminal, err := kubernetes.NewKubernetesTerminal(c.Writer, c.Request, nil)
+	kubernetesTerminal, err := kubernetes.NewKubernetesTerminal(c.Writer, c.Request, nil, loginUser.UserCode)
 	if err != nil {
 		log.Errorf("New docker client error by %v \n", err)
 		kubernetesTerminal.SendErrorMsg()
@@ -30,7 +30,6 @@ func WsConnectKubernetes(c *gin.Context){
 	// websocket close handler
 	kubernetesTerminal.WsConn.SetCloseHandler(func(code int, text string) error {
 		if kubernetesTerminal != nil{
-
 			// add login out record
 			services.UpdateLoginRecord(loginId)
 		}

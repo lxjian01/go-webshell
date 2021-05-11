@@ -32,7 +32,7 @@ func WsConnectLinux(c *gin.Context){
 	defer linuxTerminal.Close()
 	linuxTerminal.WsConn.SetCloseHandler(func(code int, text string) error {
 		if linuxTerminal != nil{
-
+			// add login out record
 			services.UpdateLoginRecord(loginId)
 		}
 		return nil

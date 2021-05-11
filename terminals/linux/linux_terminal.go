@@ -33,7 +33,7 @@ func (w *wsBufferWriter) Write(p []byte) (int, error) {
 
 type LinuxTerminal struct {
 	terminals.BaseTerminal
-	Host string
+	host string
 	Cli *ssh.Client
 	SshConn *SshConn
 }
@@ -60,9 +60,9 @@ func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader htt
 		return nil, err
 	}
 	log.Info("Websocket connect ok")
-	var c LinuxTerminal
-	c.Host = host
-	c.WsConn = wsConn
+	var terminal LinuxTerminal
+	terminal.host = host
+	terminal.WsConn = wsConn
 	LinuxUser := globalConf.GetAppConfig().LinuxUser
 	config := &ssh.ClientConfig{
 		Timeout:         time.Second * 5,
@@ -75,17 +75,17 @@ func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader htt
 		return nil, err
 	}
 	config.Auth = []ssh.AuthMethod{publicKeyAuthFunc(singer)}
-	addr := net.JoinHostPort(c.Host, strconv.Itoa(22))
+	addr := net.JoinHostPort(terminal.host, strconv.Itoa(22))
 	cli, err1 := ssh.Dial("tcp", addr, config)
-	c.Cli = cli
-	return &c, err1
+	terminal.Cli = cli
+	return &terminal, err1
 }
 
 // setup ssh shell session
 // set Session and StdinPipe here,
 // and the Session.Stdout and Session.Sdterr are also set.
-func (c *LinuxTerminal) NewSession(cols, rows int) error {
-	sshSession, err := c.Cli.NewSession()
+func (terminal *LinuxTerminal) NewSession(cols, rows int) error {
+	sshSession, err := terminal.Cli.NewSession()
 	if err != nil {
 		return err
 	}
@@ -120,23 +120,22 @@ func (c *LinuxTerminal) NewSession(cols, rows int) error {
 	if err := sshSession.Shell(); err != nil {
 		return err
 	}
-	c.SshConn = &SshConn{StdinPipe: stdinP,StdoutPipe:stdoutP,Session: sshSession}
+	terminal.SshConn = &SshConn{StdinPipe: stdinP,StdoutPipe:stdoutP,Session: sshSession}
 	return nil
 }
 
-func (c *LinuxTerminal) LinuxReadWebsocketWrite(){
+func (terminal *LinuxTerminal) LinuxReadWebsocketWrite(){
 	for {
 		// linux reader and websocket writer
 		buf := make([]byte, 1024)
-		n, err := c.SshConn.StdoutPipe.Read(buf)
+		n, err := terminal.SshConn.StdoutPipe.Read(buf)
 		if err != nil {
 			log.Error("Read docker message error by ",err)
-			c.Close()
 			return
 		}
 		cmd := string(buf[:n])
-		c.WriteRecord(cmd)
-		err1 := c.WsConn.WriteMessage(websocket.BinaryMessage, buf)
+		terminal.WriteRecord(cmd)
+		err1 := terminal.WsConn.WriteMessage(websocket.BinaryMessage, buf)
 		if err1 != nil {
 			log.Error("Docker message write to websocket error by ",err1)
 			return
@@ -144,14 +143,13 @@ func (c *LinuxTerminal) LinuxReadWebsocketWrite(){
 	}
 }
 
-func (c *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
+func (terminal *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 	var build strings.Builder
 	for {
 		// linux writer and websocket reader
-		_, p, err := c.WsConn.ReadMessage()
+		_, p, err := terminal.WsConn.ReadMessage()
 		if err != nil {
 			log.Error("Read websocket message error by ",err)
-			c.Close()
 			return
 		}
 		cmd := string(p)
@@ -160,12 +158,12 @@ func (c *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 			if err := json.Unmarshal([]byte(cmd),&resizeParams);err != nil{
 				log.Error("Unmarshal resize params error by ",err)
 			}
-			if err := c.SshConn.Session.WindowChange(resizeParams.Rows,resizeParams.Cols);err != nil{
+			if err := terminal.SshConn.Session.WindowChange(resizeParams.Rows,resizeParams.Cols);err != nil{
 				log.Error("Change ssh windows size error by ",err)
 			}
 		}else{
-			terminals.WriteCmdLog(&build, cmd, userCode, c.Host,1)
-			_,err1  := c.SshConn.StdinPipe.Write(p)
+			terminals.WriteCmdLog(&build, cmd, userCode, terminal.host,1)
+			_,err1  := terminal.SshConn.StdinPipe.Write(p)
 			if err1 != nil {
 				log.Error("Websocket message copy to docker error by ",err)
 				return
@@ -174,27 +172,27 @@ func (c *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 	}
 }
 
-func (c *LinuxTerminal) Close(){
-	if c.Cli != nil {
+func (terminal *LinuxTerminal) Close(){
+	if terminal.Cli != nil {
 		// close linux client
-		if err := c.Cli.Close();err != nil{
+		if err := terminal.Cli.Close();err != nil{
 			log.Error("Close ssh client error by",err)
 		}else{
 			log.Info("Close ssh client ok")
 		}
 
 		// close ssh connection
-		if err := c.SshConn.StdinPipe.Close();err != nil{
+		if err := terminal.SshConn.StdinPipe.Close();err != nil{
 			log.Error("Close ssh connect stdin pipe error by",err)
 		}else{
 			log.Info("Close ssh connect stdin pipe ok")
 		}
-		if err := c.SshConn.Session.Close();err != nil{
+		if err := terminal.SshConn.Session.Close();err != nil{
 			log.Error("Close ssh connect session error by",err)
 		}else{
 			log.Info("Close ssh connect session ok")
 		}
 	}
-	c.CloseWs()
-	c.CloseRecordFile()
+	terminal.CloseWs()
+	terminal.CloseRecordFile()
 }

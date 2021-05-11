@@ -25,7 +25,7 @@ var (
 
 type DockerTerminal struct{
 	terminals.BaseTerminal
-	Host string
+	host string
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
@@ -42,7 +42,7 @@ func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader ht
 	log.Info("Websocket connect ok")
 
 	var c DockerTerminal
-	c.Host = host
+	c.host = host
 	c.WsConn = wsConn
 	options := getOptions()
 	tlsConfig, err := tlsconfig.Client(options)
@@ -55,7 +55,7 @@ func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader ht
 			TLSClientConfig: tlsConfig,
 		},
 	}
-	hostCon := fmt.Sprintf("tcp://%s:2375", c.Host)
+	hostCon := fmt.Sprintf("tcp://%s:2375", c.host)
 	cli, err1 := client.NewClient(hostCon, version,httpClient,nil)
 	c.cli = cli
 	return &c, err1
@@ -77,7 +77,7 @@ func getOptions() tlsconfig.Options{
 	return options
 }
 
-func (c *DockerTerminal) ContainerExecCreate(container string) error{
+func (terminal *DockerTerminal) ContainerExecCreate(container string) error{
 	cmd := []string{
 		"/bin/sh",
 		"-c",
@@ -95,42 +95,41 @@ func (c *DockerTerminal) ContainerExecCreate(container string) error{
 		Tty:          true,
 		Detach:       true,
 	}
-	exec,err := c.cli.ContainerExecCreate(ctx, container, execCreateConf)
+	exec,err := terminal.cli.ContainerExecCreate(ctx, container, execCreateConf)
 	if err != nil {
 		return err
 	}
-	c.execId = exec.ID
+	terminal.execId = exec.ID
 
 	execAttachConf := types.ExecStartCheck{
 		Detach: false,
 		Tty: true,
 	}
-	conn,err1 := c.cli.ContainerExecAttach(ctx,c.execId,execAttachConf)
+	conn,err1 := terminal.cli.ContainerExecAttach(ctx,terminal.execId,execAttachConf)
 	if err1 != nil {
 		return err1
 	}
-	c.Response = conn
+	terminal.Response = conn
 	return nil
 }
 
-func (c *DockerTerminal) ContainerExecResize(height uint, width uint) error{
+func (terminal *DockerTerminal) ContainerExecResize(height uint, width uint) error{
 	options := types.ResizeOptions{
 		Height:height,
 		Width: width,
 	}
-	err := c.cli.ContainerExecResize(ctx,c.execId,options)
+	err := terminal.cli.ContainerExecResize(ctx, terminal.execId, options)
 	return err
 }
 
 // read docker message to send websocket
-func (c *DockerTerminal) DockerReadWebsocketWrite(){
+func (terminal *DockerTerminal) DockerReadWebsocketWrite(){
 	for {
 		// docker reader and websocket writer
 		buf := make([]byte, 10240)
-		n, err := c.Response.Conn.Read(buf)
+		n, err := terminal.Response.Conn.Read(buf)
 		if err != nil {
 			log.Error("Read docker message error by",err)
-			c.Close()
 			return
 		}
 		//cmd := strconv.Quote(string(buf[:n]))
@@ -138,8 +137,8 @@ func (c *DockerTerminal) DockerReadWebsocketWrite(){
 		//b := strings.ReplaceAll(a, "]", "")
 		//fmt.Println(b)
 		b := string(buf[:n])
-		c.WriteRecord(b)
-		err = c.WsConn.WriteMessage(websocket.BinaryMessage, buf)
+		terminal.WriteRecord(b)
+		err = terminal.WsConn.WriteMessage(websocket.BinaryMessage, buf)
 		if err != nil {
 			log.Error("Docker message write to websocket error by",err)
 			return
@@ -147,14 +146,13 @@ func (c *DockerTerminal) DockerReadWebsocketWrite(){
 	}
 }
 
-func (c *DockerTerminal) DockerWriteWebsocketRead(userCode string){
+func (terminal *DockerTerminal) DockerWriteWebsocketRead(userCode string){
 	var build strings.Builder
 	for {
 		// docker writer and websocket reader
-		_, p, err := c.WsConn.ReadMessage()
+		_, p, err := terminal.WsConn.ReadMessage()
 		if err != nil {
 			log.Error("Read websocket message error by",err)
-			c.Close()
 			return
 		}
 		cmd := string(p)
@@ -165,12 +163,12 @@ func (c *DockerTerminal) DockerWriteWebsocketRead(userCode string){
 			}
 			height := uint(resizeParams.Rows)
 			width := uint(resizeParams.Cols)
-			if err := c.ContainerExecResize(height,width);err != nil{
+			if err := terminal.ContainerExecResize(height,width);err != nil{
 				log.Error("Change ssh windows size error by",err)
 			}
 		}else {
-			terminals.WriteCmdLog(&build, cmd, userCode, c.Host, 0)
-			_, err1 := c.Response.Conn.Write(p)
+			terminals.WriteCmdLog(&build, cmd, userCode, terminal.host, 0)
+			_, err1 := terminal.Response.Conn.Write(p)
 			if err1 != nil {
 				log.Error("Websocket message copy to docker error by", err)
 				return
@@ -179,18 +177,18 @@ func (c *DockerTerminal) DockerWriteWebsocketRead(userCode string){
 	}
 }
 
-func (c *DockerTerminal) Close() {
+func (terminal *DockerTerminal) Close() {
 	// close docker client
-	if c.cli != nil {
-		if err := c.cli.Close();err != nil {
-			log.Errorf("Close docker client exec id is %s error by % \n", c.execId, err.Error())
+	if terminal.cli != nil {
+		if err := terminal.cli.Close();err != nil {
+			log.Errorf("Close docker client exec id is %s error by % \n", terminal.execId, err.Error())
 		}else{
-			log.Infof("Close docker client ok by exec id is %s \n", c.execId)
+			log.Infof("Close docker client ok by exec id is %s \n", terminal.execId)
 		}
 
-		c.Response.Close()
-		log.Infof("End close docker client response by exec id is %s ok \n", c.execId)
+		terminal.Response.Close()
+		log.Infof("End close docker client response by exec id is %s ok \n", terminal.execId)
 	}
-	c.CloseWs()
-	c.CloseRecordFile()
+	terminal.CloseWs()
+	terminal.CloseRecordFile()
 }
