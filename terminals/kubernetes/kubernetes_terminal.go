@@ -62,7 +62,7 @@ func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeade
 }
 
 // Exec exec into a pod
-func (t *KubernetesTerminal) Exec() error {
+func (t *KubernetesTerminal) CreateExec() error {
 	req := GetClientset().CoreV1().RESTClient().Post().
 		Resource("pods").
 		Namespace(t.namespace).

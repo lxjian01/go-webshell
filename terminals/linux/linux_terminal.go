@@ -90,7 +90,7 @@ func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader htt
 // setup ssh shell session
 // set Session and StdinPipe here,
 // and the Session.Stdout and Session.Sdterr are also set.
-func (t *LinuxTerminal) NewSession(cols, rows int) error {
+func (t *LinuxTerminal) CreateSession() error {
 	sshSession, err := t.Cli.NewSession()
 	if err != nil {
 		return err
@@ -118,8 +118,9 @@ func (t *LinuxTerminal) NewSession(cols, rows int) error {
 		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
+
 	// Request pseudo terminal
-	if err := sshSession.RequestPty("xterm", rows, cols, modes); err != nil {
+	if err := sshSession.RequestPty("xterm", 100, 100, modes); err != nil {
 		return err
 	}
 	// Start remote shell

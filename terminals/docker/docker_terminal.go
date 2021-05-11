@@ -26,15 +26,16 @@ var (
 
 type DockerTerminal struct{
 	terminals.BaseTerminal
-	host string
 	cli *client.Client
 	execId string
 	Response types.HijackedResponse
 	build strings.Builder
 	userCode string
+	host string
+	container string
 }
 
-func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, userCode string, host string) (*DockerTerminal, error) {
+func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, userCode string, host string, container string) (*DockerTerminal, error) {
 
 	// 初始化websocket
 	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
@@ -48,6 +49,7 @@ func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader ht
 	t.host = host
 	t.userCode = userCode
 	t.WsConn = wsConn
+	t.container = container
 	options := getOptions()
 	tlsConfig, err := tlsconfig.Client(options)
 	if err != nil {
@@ -81,7 +83,7 @@ func getOptions() tlsconfig.Options{
 	return options
 }
 
-func (t *DockerTerminal) ContainerExecCreate(container string) error{
+func (t *DockerTerminal) CreateExec() error{
 	cmd := []string{
 		"/bin/sh",
 		"-c",
@@ -99,7 +101,7 @@ func (t *DockerTerminal) ContainerExecCreate(container string) error{
 		Tty:          true,
 		Detach:       true,
 	}
-	exec,err := t.cli.ContainerExecCreate(ctx, container, execCreateConf)
+	exec,err := t.cli.ContainerExecCreate(ctx, t.container, execCreateConf)
 	if err != nil {
 		return err
 	}

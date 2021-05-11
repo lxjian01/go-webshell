@@ -37,7 +37,7 @@ func WsConnectLinux(c *gin.Context){
 		}
 		return nil
 	})
-	if err := linuxTerminal.NewSession(100,100);err != nil{
+	if err := linuxTerminal.CreateSession();err != nil{
 		log.Error("New ssh connect error by ",err)
 		linuxTerminal.SendErrorMsg()
 	}

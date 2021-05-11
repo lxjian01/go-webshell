@@ -35,9 +35,8 @@ func WsConnectKubernetes(c *gin.Context){
 		}
 		return nil
 	})
-	// container exec
-	//container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
-	if err := kubernetesTerminal.Exec();err != nil{
+	// create exec
+	if err := kubernetesTerminal.CreateExec();err != nil{
 		log.Error("Create container exec error by",err)
 		kubernetesTerminal.SendErrorMsg()
 	}
