@@ -20,3 +20,8 @@ func AddDockerOperRecord(userCode string, host string, cmd string) {
 func AddLinuxOperRecord(userCode string, host string, cmd string) {
 
 }
+
+// 添加lunux操作记录
+func AddKubernetesOperRecord(userCode string, host string, cmd string) {
+
+}

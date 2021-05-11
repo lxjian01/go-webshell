@@ -119,13 +119,15 @@ func (t *BaseTerminal) CloseRecordFile(){
 }
 
 // write oper commands
-func WriteCmdLog(build *strings.Builder,msg string,userCode string,host string,mtype int)  {
+func (t *BaseTerminal) WriteCmdLog(build *strings.Builder, msg string, userCode string, host string, mtype int)  {
 	if msg == "\r"{
 		cmd := build.String()
-		if mtype == 0{
-			services.AddDockerOperRecord(cmd,userCode,host)
+		if mtype == 0 {
+			services.AddDockerOperRecord(cmd, userCode, host)
+		} else if mtype == 1 {
+			services.AddLinuxOperRecord(cmd, userCode, host)
 		}else{
-			services.AddLinuxOperRecord(cmd,userCode,host)
+			services.AddKubernetesOperRecord(cmd, userCode, host)
 		}
 		build.Reset()
 	}else{
