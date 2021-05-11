@@ -59,7 +59,7 @@ func (t *BaseTerminal) SendErrorMsg()  {
 	t.SendMsg("----error----")
 }
 
-func (t *BaseTerminal) CreateRecord(userCode string, host string) error {
+func (t *BaseTerminal) createRecord(name string, userCode string, host string) error {
 	recordDir := globalConf.GetAppConfig().RecordDir
 	if !utils.IsExist(recordDir){
 		_, err := utils.CreateDir(recordDir)
@@ -68,28 +68,40 @@ func (t *BaseTerminal) CreateRecord(userCode string, host string) error {
 		}
 	}
 
-	time := utils.DateUnix()
-	filename := fmt.Sprintf("docker_%s_%s_%d.cast",host,userCode,time)
+	nowTime := utils.DateUnix()
+	filename := fmt.Sprintf("%s_%s_%s_%d.cast", name, host, userCode, nowTime)
 	file := path.Join(recordDir, filename)
 	f, err := os.Create(file) //创建文件
 	if err != nil{
 		return err
 	}
 	record := &Record{
-		StartTime: time,
+		StartTime: nowTime,
 		File: f,
 	}
 	recordStart := fmt.Sprintf("{\"version\": 2, \"width\": 237, \"height\": 55, \"timestamp\": %d, \"env\": {\"SHELL\": \"/bin/bash\", \"TERM\": \"linux\"}}\n",record.StartTime)
-	_, errw := record.File.WriteString(recordStart)
+	_, err = record.File.WriteString(recordStart)
 	t.record = record
-	return errw
+	return err
+}
+
+func (t *BaseTerminal) CreateRecordLinux(userCode string, host string) error {
+	return t.createRecord("linux", userCode, host)
+}
+
+func (t *BaseTerminal) CreateRecordDocker(userCode string, host string) error {
+	return t.createRecord("docker", userCode, host)
+}
+
+func (t *BaseTerminal) CreateRecordKubernetes(userCode string, host string) error {
+	return t.createRecord("kubernetes", userCode, host)
 }
 
 func (t *BaseTerminal) WriteRecord(cmd string){
 	timeMinus := float64(utils.DateUnixNano() - t.record.StartTime * 1e9) / 1e9
 	cmdString := fmt.Sprintf("[%.6f,\"%s\",%s]\n",timeMinus,"o",cmd)
 	log.Info(cmdString)
-	_,err := t.record.File.WriteString(cmdString)
+	_,err := t.record.File.WriteString(cmd)
 	if err != nil{
 		log.Errorf("Write cmd % in file error by %v \n",cmd,err)
 	}

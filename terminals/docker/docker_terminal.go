@@ -142,8 +142,8 @@ func (t *DockerTerminal) DockerReadWebsocketWrite(){
 		//a := strings.ReplaceAll(cmd, "[", "")
 		//b := strings.ReplaceAll(a, "]", "")
 		//fmt.Println(b)
-		b := string(buf[:n])
-		t.WriteRecord(b)
+		cmd := string(buf[:n])
+		t.WriteRecord(cmd)
 		err = t.WsConn.WriteMessage(websocket.BinaryMessage, buf)
 		if err != nil {
 			log.Error("Docker message write to websocket error by",err)

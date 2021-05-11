@@ -41,7 +41,7 @@ func WsConnectLinux(c *gin.Context){
 		log.Error("New ssh connect error by ",err)
 		linuxTerminal.SendErrorMsg()
 	}
-	err = linuxTerminal.CreateRecord(loginUser.UserCode, host)
+	err = linuxTerminal.CreateRecordLinux(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by ",err)
 		linuxTerminal.SendErrorMsg()

@@ -43,7 +43,7 @@ func WsConnectDocker(c *gin.Context){
 		log.Error("Create container exec error by ",err)
 		dockerTerminal.SendErrorMsg()
 	}
-	err = dockerTerminal.CreateRecord(loginUser.UserCode, host)
+	err = dockerTerminal.CreateRecordDocker(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by ",err)
 		dockerTerminal.SendErrorMsg()

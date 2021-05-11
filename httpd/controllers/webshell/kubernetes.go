@@ -40,7 +40,7 @@ func WsConnectKubernetes(c *gin.Context){
 		log.Error("Create container exec error by",err)
 		kubernetesTerminal.SendErrorMsg()
 	}
-	err = kubernetesTerminal.CreateRecord(loginUser.UserCode, host)
+	err = kubernetesTerminal.CreateRecordKubernetes(loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Create record error by",err)
 		kubernetesTerminal.SendErrorMsg()

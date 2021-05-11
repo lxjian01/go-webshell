@@ -158,6 +158,9 @@ func (t *KubernetesTerminal) Read(p []byte) (int, error) {
 
 // Write called from remotecommand whenever there is any output
 func (t *KubernetesTerminal) Write(p []byte) (int, error) {
+	//n := len(p)
+	//cmd := string(p[:n])
+	//t.WriteRecord(cmd)
 	if err := t.WsConn.WriteMessage(websocket.TextMessage, p); err != nil {
 		log.Warnf("write message err: %v \n", err)
 		return copy(p, EndOfTransmission), err
