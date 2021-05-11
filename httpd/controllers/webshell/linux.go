@@ -24,7 +24,7 @@ func WsConnectLinux(c *gin.Context){
 	// add login record
 	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host, deployJobHostId)
 	// new linux terminal
-	linuxTerminal, err := linux.NewLinuxTerminal(c.Writer, c.Request, nil, host)
+	linuxTerminal, err := linux.NewLinuxTerminal(c.Writer, c.Request, nil, loginUser.UserCode, host)
 	if err != nil{
 		log.Error("Init ssh client error by ",err)
 		linuxTerminal.SendErrorMsg()
@@ -54,5 +54,5 @@ func WsConnectLinux(c *gin.Context){
 		log.Error("Pool submit linux shell error by",err)
 		linuxTerminal.SendErrorMsg()
 	}
-	linuxTerminal.LinuxWriteWebsocketRead(loginUser.UserCode)
+	linuxTerminal.LinuxWriteWebsocketRead()
 }

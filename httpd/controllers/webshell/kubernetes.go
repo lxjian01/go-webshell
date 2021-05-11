@@ -21,7 +21,7 @@ func WsConnectKubernetes(c *gin.Context){
 	// add login record
 	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host,deployJobHostId)
 	// new kubernetes terminal
-	kubernetesTerminal, err := kubernetes.NewKubernetesTerminal(c.Writer, c.Request, nil, loginUser.UserCode)
+	kubernetesTerminal, err := kubernetes.NewKubernetesTerminal(c.Writer, c.Request, nil, loginUser.UserCode, "default","nginx-deployment-b5bd67766-cvwjw")
 	if err != nil {
 		log.Errorf("New docker client error by %v \n", err)
 		kubernetesTerminal.SendErrorMsg()
@@ -37,7 +37,7 @@ func WsConnectKubernetes(c *gin.Context){
 	})
 	// container exec
 	//container := fmt.Sprintf("%s_%s",moduleCode,deployJobHostId)
-	if err := kubernetes.Exec(kubernetesTerminal,"default","nginx-deployment-b5bd67766-cvwjw");err != nil{
+	if err := kubernetesTerminal.Exec();err != nil{
 		log.Error("Create container exec error by",err)
 		kubernetesTerminal.SendErrorMsg()
 	}

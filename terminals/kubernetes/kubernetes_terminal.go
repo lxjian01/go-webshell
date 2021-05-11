@@ -23,7 +23,6 @@ var (
 type PtyHandler interface {
 	remotecommand.TerminalSizeQueue
 	Done()
-	Tty() bool
 	Stdin() io.Reader
 	Stdout() io.Writer
 	Stderr() io.Writer
@@ -36,10 +35,12 @@ type KubernetesTerminal struct {
 	doneChan chan struct{}
 	tty      bool
 	userCode string
+	namespace string
+	pod string
 }
 
 // create KubernetesTerminal
-func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, userCode string) (*KubernetesTerminal, error) {
+func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, userCode string, namespace string, pod string) (*KubernetesTerminal, error) {
 	// 初始化websocket
 	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
 	if err != nil {
@@ -53,17 +54,19 @@ func NewKubernetesTerminal(w http.ResponseWriter, r *http.Request, responseHeade
 		sizeChan: make(chan remotecommand.TerminalSize),
 		doneChan: make(chan struct{}),
 		userCode: userCode,
+		namespace: namespace,
+		pod: pod,
 	}
 	terminal.WsConn = wsConn
 	return terminal, nil
 }
 
 // Exec exec into a pod
-func Exec(ptyHandler PtyHandler, namespace, podName string) error {
+func (t *KubernetesTerminal) Exec() error {
 	req := GetClientset().CoreV1().RESTClient().Post().
 		Resource("pods").
-		Name(podName).
-		Namespace(namespace).
+		Namespace(t.namespace).
+		Name(t.pod).
 		SubResource("exec")
 	cmd := []string{
 		"/bin/sh",
@@ -83,11 +86,11 @@ func Exec(ptyHandler PtyHandler, namespace, podName string) error {
 		return err
 	}
 	err = executor.Stream(remotecommand.StreamOptions{
-		Stdin:             ptyHandler.Stdin(),
-		Stdout:            ptyHandler.Stdout(),
-		Stderr:            ptyHandler.Stderr(),
-		TerminalSizeQueue: ptyHandler,
-		Tty:               ptyHandler.Tty(),
+		Stdin:             t.Stdin(),
+		Stdout:            t.Stdout(),
+		Stderr:            t.Stderr(),
+		TerminalSizeQueue: t,
+		Tty:               t.tty,
 	})
 	return err
 }
@@ -105,11 +108,6 @@ func (t *KubernetesTerminal) Next() *remotecommand.TerminalSize {
 // Done done, must call Done() before connection close, or Next() would not exits.
 func (t *KubernetesTerminal) Done() {
 	close(t.doneChan)
-}
-
-// Tty ...
-func (t *KubernetesTerminal) Tty() bool {
-	return t.tty
 }
 
 // Stdin ...

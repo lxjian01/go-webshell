@@ -40,6 +40,7 @@ type LinuxTerminal struct {
 	host string
 	Cli *ssh.Client
 	SshConn *SshConn
+	userCode string
 }
 
 // connect to ssh server using ssh session.
@@ -56,7 +57,7 @@ func publicKeyAuthFunc(singer ssh.Signer) ssh.AuthMethod{
 	return ssh.PublicKeys(singer)
 }
 
-func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, host string) (*LinuxTerminal, error) {
+func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, userCode string, host string) (*LinuxTerminal, error) {
 	// 初始化websocket
 	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
 	if err != nil {
@@ -64,9 +65,10 @@ func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader htt
 		return nil, err
 	}
 	log.Info("Websocket connect ok")
-	var terminal LinuxTerminal
-	terminal.host = host
-	terminal.WsConn = wsConn
+	var t LinuxTerminal
+	t.host = host
+	t.WsConn = wsConn
+	t.userCode = userCode
 	LinuxUser := globalConf.GetAppConfig().LinuxUser
 	config := &ssh.ClientConfig{
 		Timeout:         time.Second * 5,
@@ -79,10 +81,10 @@ func NewLinuxTerminal(w http.ResponseWriter, r *http.Request, responseHeader htt
 		return nil, err
 	}
 	config.Auth = []ssh.AuthMethod{publicKeyAuthFunc(singer)}
-	addr := net.JoinHostPort(terminal.host, strconv.Itoa(22))
+	addr := net.JoinHostPort(t.host, strconv.Itoa(22))
 	cli, err1 := ssh.Dial("tcp", addr, config)
-	terminal.Cli = cli
-	return &terminal, err1
+	t.Cli = cli
+	return &t, err1
 }
 
 // setup ssh shell session
@@ -147,7 +149,7 @@ func (t *LinuxTerminal) LinuxReadWebsocketWrite(){
 	}
 }
 
-func (t *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
+func (t *LinuxTerminal) LinuxWriteWebsocketRead(){
 	for {
 		// linux writer and websocket reader
 		_, p, err := t.WsConn.ReadMessage()
@@ -165,7 +167,7 @@ func (t *LinuxTerminal) LinuxWriteWebsocketRead(userCode string){
 				log.Error("Change ssh windows size error by ",err)
 			}
 		}else{
-			t.WriteCmdLog(&build, cmd, userCode, t.host,1)
+			t.WriteCmdLog(&build, cmd, t.userCode, t.host,1)
 			_,err1  := t.SshConn.StdinPipe.Write(p)
 			if err1 != nil {
 				log.Error("Websocket message copy to docker error by ",err)

@@ -23,7 +23,7 @@ func WsConnectDocker(c *gin.Context){
 	// add login record
 	loginId := services.InsertLoginRecord(loginUser.UserCode, projectCode, moduleCode,host,deployJobHostId)
 	// new docker terminal
-	dockerTerminal, err := docker.NewDockerTerminal(c.Writer, c.Request, nil, host)
+	dockerTerminal, err := docker.NewDockerTerminal(c.Writer, c.Request, nil, loginUser.UserCode, host)
 	if err != nil {
 		log.Errorf("New docker client error by %v \n", err)
 		dockerTerminal.SendErrorMsg()
@@ -55,5 +55,5 @@ func WsConnectDocker(c *gin.Context){
 		log.Error("Pool submit docker shell error by",err)
 		dockerTerminal.SendErrorMsg()
 	}
-	dockerTerminal.DockerWriteWebsocketRead(loginUser.UserCode)
+	dockerTerminal.DockerWriteWebsocketRead()
 }

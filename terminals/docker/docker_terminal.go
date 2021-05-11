@@ -31,9 +31,10 @@ type DockerTerminal struct{
 	execId string
 	Response types.HijackedResponse
 	build strings.Builder
+	userCode string
 }
 
-func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, host string) (*DockerTerminal, error) {
+func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader http.Header, userCode string, host string) (*DockerTerminal, error) {
 
 	// 初始化websocket
 	wsConn, err := terminals.NewWebsocket(w, r, responseHeader)
@@ -43,9 +44,10 @@ func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader ht
 	}
 	log.Info("Websocket connect ok")
 
-	var c DockerTerminal
-	c.host = host
-	c.WsConn = wsConn
+	var t DockerTerminal
+	t.host = host
+	t.userCode = userCode
+	t.WsConn = wsConn
 	options := getOptions()
 	tlsConfig, err := tlsconfig.Client(options)
 	if err != nil {
@@ -57,10 +59,10 @@ func NewDockerTerminal(w http.ResponseWriter, r *http.Request, responseHeader ht
 			TLSClientConfig: tlsConfig,
 		},
 	}
-	hostCon := fmt.Sprintf("tcp://%s:2375", c.host)
+	hostCon := fmt.Sprintf("tcp://%s:2375", t.host)
 	cli, err1 := client.NewClient(hostCon, version,httpClient,nil)
-	c.cli = cli
-	return &c, err1
+	t.cli = cli
+	return &t, err1
 }
 
 func getOptions() tlsconfig.Options{
@@ -148,7 +150,7 @@ func (t *DockerTerminal) DockerReadWebsocketWrite(){
 	}
 }
 
-func (t *DockerTerminal) DockerWriteWebsocketRead(userCode string){
+func (t *DockerTerminal) DockerWriteWebsocketRead(){
 	for {
 		// docker writer and websocket reader
 		_, p, err := t.WsConn.ReadMessage()
@@ -168,7 +170,7 @@ func (t *DockerTerminal) DockerWriteWebsocketRead(userCode string){
 				log.Error("Change ssh windows size error by",err)
 			}
 		}else {
-			t.WriteCmdLog(&build, cmd, userCode, t.host, 0)
+			t.WriteCmdLog(&build, cmd, t.userCode, t.host, 0)
 			_, err1 := t.Response.Conn.Write(p)
 			if err1 != nil {
 				log.Error("Websocket message copy to docker error by", err)
